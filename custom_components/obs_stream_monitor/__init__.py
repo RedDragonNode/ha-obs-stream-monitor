@@ -21,7 +21,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         password=entry.data[CONF_PASSWORD],
     )
 
-    await coordinator.async_config_entry_first_refresh()
+    # Deliberately NOT async_config_entry_first_refresh(): that raises
+    # ConfigEntryNotReady and aborts the whole entry - including the
+    # "OBS starten" button platform - whenever OBS/obs-websocket isn't
+    # reachable yet. But "OBS isn't running" is exactly the situation the
+    # button exists to fix, so a failed first poll must not block setup.
+    # async_refresh() just records the failure; sensors then come up as
+    # unavailable (via CoordinatorEntity) while the button stays usable.
+    await coordinator.async_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 

@@ -57,7 +57,7 @@ obs-websocket can only talk to OBS once it's already running, so starting OBS co
 
 One-time setup on the machine running OBS:
 
-1. **Enable OpenSSH Server** (Windows): Settings -> System -> Optional Features -> Add a feature -> "OpenSSH Server". Then, in an admin PowerShell: `Start-Service sshd` and `Set-Service -Name sshd -StartupType Automatic`.
+1. **Enable OpenSSH Server** (Windows): Settings -> Apps -> Optional Features -> Add a feature -> "OpenSSH Server". Then, in an admin PowerShell: `Start-Service sshd` and `Set-Service -Name sshd -StartupType Automatic`.
 2. **Create a Scheduled Task** that starts OBS: Task Scheduler -> Create Task (not "Create Basic Task") -> name it (e.g. `StartOBS`) -> General tab: **"Run only when user is logged on"** -> Actions tab: Program = path to `obs64.exe`, Start in = the OBS folder. No trigger needed; it's only ever run remotely via `schtasks /run`.
 3. In Home Assistant: open the integration -> Configure -> fill in the SSH username, password, port (default `22`) and the task name from step 2. The "OBS starten" button entity appears after saving (entry reloads automatically).
 
