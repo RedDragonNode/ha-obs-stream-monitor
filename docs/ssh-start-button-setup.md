@@ -68,19 +68,23 @@ Mit OK bestätigen (zwei Dialoge).
 
 ## 4. SSH-Zugangsdaten besorgen
 
-Benutzername und Passwort sind dein ganz normales Windows-Login, kein Extra-Account.
+Passwort ist dein ganz normales Windows-Login-Passwort, kein Extra-Account. Beim
+Benutzernamen kommt es drauf an, mit was für einem Konto du angemeldet bist:
 
-- **Benutzername:** siehe Task-Scheduler-Dialog, Feld "Autor" (z. B. `RECHNERNAME\the-d` →
+- **Lokales Konto:** siehe Task-Scheduler-Dialog, Feld "Autor" (z. B. `RECHNERNAME\the-d` →
   der Teil nach dem Backslash)
-- **Passwort:** dein normales Anmeldepasswort
+- **Microsoft-Konto:** hier reicht der Teil nach dem Backslash aus dem Task-Scheduler
+  **nicht** - als SSH-Benutzername muss die **volle E-Mail-Adresse** des Microsoft-Kontos
+  rein (z. B. `the-dragon-88@web.de`), sonst schlägt die Anmeldung fehl, selbst wenn
+  Passwort und alles andere stimmen.
 
-**Falls das Konto ein Microsoft-Konto ist** (E-Mail-Adresse statt lokalem Namen unter
-Einstellungen → Konten): Unter **Einstellungen → Konten → Anmeldeoptionen** ganz unten
-prüfen, ob **"Für Microsoft-Konten auf diesem Gerät aus Sicherheitsgründen nur Anmeldung
-mit Windows Hello erlauben"** aktiviert ist. Wenn ja, **ausschalten** - sonst lehnt Windows
-jede Passwort-Anmeldung ab (SSH meldet "Authentication failed", obwohl das Passwort
-stimmt), weil nur noch PIN/Windows Hello als Login erlaubt ist. Das SSH-Passwort ist dann
-das normale Passwort des Microsoft-Kontos, nicht die PIN.
+**Bei einem Microsoft-Konto zusätzlich prüfen:** Unter **Einstellungen → Konten →
+Anmeldeoptionen** ganz unten, ob **"Für Microsoft-Konten auf diesem Gerät aus
+Sicherheitsgründen nur Anmeldung mit Windows Hello erlauben"** aktiviert ist. Wenn ja,
+**ausschalten** - sonst lehnt Windows jede Passwort-Anmeldung ab (SSH meldet
+"Authentication failed", obwohl das Passwort stimmt), weil nur noch PIN/Windows Hello als
+Login erlaubt ist. Das SSH-Passwort ist dann das normale Passwort des Microsoft-Kontos,
+nicht die PIN.
 
 ## 5. In Home Assistant eintragen
 
@@ -106,7 +110,7 @@ ssh BENUTZERNAME@IP-DES-RECHNERS
 | Meldung im HA-Button-Fehler | Ursache | Lösung |
 |---|---|---|
 | `timed out` | SSH-Pakete kommen nicht an (meist Firewall/Netzwerkprofil) | Schritt 2 |
-| `Authentication failed` | Benutzername/Passwort falsch, oder Passwort-Login für das Konto blockiert | Schritt 4 |
+| `Authentication failed` | Benutzername/Passwort falsch, bei Microsoft-Konto nur Kurzname statt voller E-Mail-Adresse verwendet, oder Passwort-Login für das Konto blockiert | Schritt 4 |
 | Button lässt sich gar nicht drücken / fehlt | Integration vor v0.2.1: komplette Einrichtung scheiterte, wenn OBS beim Laden nicht erreichbar war | Auf v0.2.1 oder neuer aktualisieren |
 | `schtasks meldete Exit-Code ...` | Task-Name in HA stimmt nicht exakt mit dem Namen in der Aufgabenplanung überein | Schritt 3 - Name 1:1 abgleichen |
 
