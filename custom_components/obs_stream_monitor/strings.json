@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "OBS verbinden",
+        "description": "Zugangsdaten aus OBS -> Extras -> WebSocket-Server-Einstellungen",
+        "data": {
+          "host": "Host / IP-Adresse",
+          "port": "Port",
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen. IP, Port und Netzwerk prüfen.",
+      "invalid_auth": "Verbindung abgelehnt. Passwort prüfen.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieses OBS ist bereits eingerichtet."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "scene": { "name": "Aktuelle Szene" },
+      "stream_duration": { "name": "Stream-Dauer" },
+      "stream_bitrate": { "name": "Bitrate" },
+      "dropped_frames_pct": { "name": "Dropped Frames" },
+      "record_duration": { "name": "Aufnahme-Dauer" },
+      "cpu_usage": { "name": "CPU-Auslastung (OBS)" },
+      "free_disk_gb": { "name": "Freier Speicherplatz" },
+      "active_fps": { "name": "Aktuelle FPS" }
+    },
+    "binary_sensor": {
+      "stream_active": { "name": "Livestream" },
+      "record_active": { "name": "Aufnahme" }
+    }
+  }
+}
