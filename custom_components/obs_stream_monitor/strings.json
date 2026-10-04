@@ -20,6 +20,20 @@
       "already_configured": "Dieses OBS ist bereits eingerichtet."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "OBS-Start per SSH (optional)",
+        "description": "Leer lassen für reines Monitoring. Ausfüllen, um den 'OBS starten'-Button zu bekommen - braucht OpenSSH-Server unter Windows und eine Scheduled Task, die OBS startet ('Nur ausführen, wenn Benutzer angemeldet ist').",
+        "data": {
+          "ssh_username": "SSH-Benutzername",
+          "ssh_password": "SSH-Passwort",
+          "ssh_port": "SSH-Port",
+          "task_name": "Name der Scheduled Task"
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "scene": { "name": "Aktuelle Szene" },
@@ -34,6 +48,9 @@
     "binary_sensor": {
       "stream_active": { "name": "Livestream" },
       "record_active": { "name": "Aufnahme" }
+    },
+    "button": {
+      "start_obs": { "name": "OBS starten" }
     }
   }
 }

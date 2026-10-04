@@ -20,6 +20,20 @@
       "already_configured": "This OBS instance is already configured."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Start OBS over SSH (optional)",
+        "description": "Leave blank for monitoring only. Fill in to get the 'Start OBS' button - requires OpenSSH Server on Windows and a Scheduled Task that launches OBS ('Only run when user is logged on').",
+        "data": {
+          "ssh_username": "SSH username",
+          "ssh_password": "SSH password",
+          "ssh_port": "SSH port",
+          "task_name": "Scheduled task name"
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "scene": { "name": "Current scene" },
@@ -34,6 +48,9 @@
     "binary_sensor": {
       "stream_active": { "name": "Live stream" },
       "record_active": { "name": "Recording" }
+    },
+    "button": {
+      "start_obs": { "name": "Start OBS" }
     }
   }
 }

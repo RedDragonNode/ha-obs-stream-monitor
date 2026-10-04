@@ -8,10 +8,23 @@ import obsws_python as obsws
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import CONNECT_TIMEOUT, DEFAULT_NAME, DEFAULT_PORT, DOMAIN
+from .const import (
+    CONF_SSH_PASSWORD,
+    CONF_SSH_PORT,
+    CONF_SSH_USERNAME,
+    CONF_TASK_NAME,
+    CONNECT_TIMEOUT,
+    DEFAULT_NAME,
+    DEFAULT_PORT,
+    DEFAULT_SSH_PORT,
+    DEFAULT_TASK_NAME,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,6 +54,13 @@ class ObsStreamMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for OBS Stream Monitor."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> ObsStreamMonitorOptionsFlow:
+        return ObsStreamMonitorOptionsFlow(config_entry)
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         errors: dict[str, str] = {}
@@ -73,3 +93,37 @@ class ObsStreamMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
+
+
+class ObsStreamMonitorOptionsFlow(config_entries.OptionsFlow):
+    """Options for the 'OBS starten' button (SSH + Scheduled Task).
+
+    All fields are optional: leaving the SSH username empty keeps this
+    integration monitoring-only and no button entity is created.
+    """
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        self._config_entry = config_entry
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        current = self._config_entry.options
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_SSH_USERNAME, default=current.get(CONF_SSH_USERNAME, "")
+                ): str,
+                vol.Optional(
+                    CONF_SSH_PASSWORD, default=current.get(CONF_SSH_PASSWORD, "")
+                ): str,
+                vol.Optional(
+                    CONF_SSH_PORT, default=current.get(CONF_SSH_PORT, DEFAULT_SSH_PORT)
+                ): int,
+                vol.Optional(
+                    CONF_TASK_NAME, default=current.get(CONF_TASK_NAME, DEFAULT_TASK_NAME)
+                ): str,
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema)
