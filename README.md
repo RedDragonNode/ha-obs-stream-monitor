@@ -63,6 +63,10 @@ One-time setup on the machine running OBS:
 
 Leave the SSH fields empty to keep this integration monitoring-only.
 
+## Icon
+
+Ships its own brand icon (`custom_components/obs_stream_monitor/brand/`) - a generic original camera/live-dot mark, not OBS's own logo/trademark, so there's no licensing question around redistributing it.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
