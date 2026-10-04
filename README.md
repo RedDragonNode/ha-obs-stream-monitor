@@ -55,13 +55,15 @@ obs-websocket v5 does not expose a direct bitrate field. This integration derive
 
 obs-websocket can only talk to OBS once it's already running, so starting OBS cold needs a different path: Home Assistant opens an SSH connection to the machine and triggers a Windows Scheduled Task that launches OBS. Running it as a Scheduled Task (rather than spawning the process directly over SSH) is deliberate — only a task configured to run in the logged-on user's session shows up on screen; a bare SSH-launched process runs invisibly in its own session.
 
-One-time setup on the machine running OBS:
+Leave the SSH fields in the integration's Configure dialog empty to keep this integration monitoring-only.
 
-1. **Enable OpenSSH Server** (Windows): Settings -> Apps -> Optional Features -> Add a feature -> "OpenSSH Server". Then, in an admin PowerShell: `Start-Service sshd` and `Set-Service -Name sshd -StartupType Automatic`.
-2. **Create a Scheduled Task** that starts OBS: Task Scheduler -> Create Task (not "Create Basic Task") -> name it (e.g. `StartOBS`) -> General tab: **"Run only when user is logged on"** -> Actions tab: Program = path to `obs64.exe`, Start in = the OBS folder. No trigger needed; it's only ever run remotely via `schtasks /run`.
-3. In Home Assistant: open the integration -> Configure -> fill in the SSH username, password, port (default `22`) and the task name from step 2. The "OBS starten" button entity appears after saving (entry reloads automatically).
+**Full step-by-step setup (including the two gotchas that actually bite — firewall network profile, and Microsoft-account password sign-in) is in [docs/ssh-start-button-setup.md](docs/ssh-start-button-setup.md).**
 
-Leave the SSH fields empty to keep this integration monitoring-only.
+### Multiple OBS installations
+
+Used one at a time (not simultaneously): give each installation its own obs-websocket port (even though they never run together — HA tells entries apart by host+port, so a shared port means a shared, colliding entry), create a separate Scheduled Task per installation, and add a separate Home Assistant integration entry per installation with its own task name under Configure. Whichever one isn't currently running just shows "not available" sensors, which is correct.
+
+Running two instances at once is a different, more involved OBS-side setup (`--multi` flag, separate `--profile`/portable config dirs) and isn't covered here.
 
 ## Icon
 
