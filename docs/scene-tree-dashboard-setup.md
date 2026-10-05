@@ -52,6 +52,30 @@ Die `entry_id` steht in der URL, wenn man in **Einstellungen → Geräte & Diens
 jeweiligen OBS-Stream-Monitor-Eintrag klickt (der Teil nach `.../integrations/integration/
 obs_stream_monitor` bzw. die ID in der Geräte-URL).
 
+### Variante: eine eigene Karte pro Szene
+
+Statt einer Karte mit Szenen-Auswahl kann jede Szene auch ihre eigene, fest zugeordnete
+Karte bekommen — dann liegen z. B. alle Szenen nebeneinander im Raster, ohne erst in die
+Szenen-Ebene klicken zu müssen. Dafür bei der Karten-Konfiguration das Feld `scene` mit dem
+exakten Szenennamen setzen (Groß-/Kleinschreibung muss stimmen):
+
+```yaml
+type: custom:obs-scene-tree-card
+scene: Spiele Saison
+```
+
+```yaml
+type: custom:obs-scene-tree-card
+scene: Pause
+```
+
+Jede so eingerichtete Karte zeigt direkt die Quellen dieser einen Szene (samt
+Sichtbarkeits-Schaltern); ein Klick auf eine Quelle führt wie gewohnt eine Ebene tiefer zu
+deren Filtern. Nur die Szenen-Ebene selbst (zu anderen Szenen wechseln) gibt es in diesem
+Modus nicht — dafür legt man eben für jede Szene eine eigene Karte an. Mehrere dieser
+Karten lassen sich z. B. über eine "Raster"-Stapelkarte (`type: grid`) nebeneinander
+anordnen.
+
 ## Bedienung
 
 - **Erste Ebene:** alle Szenen. Ein roter Punkt markiert die aktuell aktive Szene.

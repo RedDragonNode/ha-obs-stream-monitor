@@ -18,6 +18,14 @@
  * "custom:obs-scene-tree-card" to any dashboard. Full walkthrough in
  * docs/scene-tree-dashboard-setup.md.
  *
+ * Config options (all optional):
+ *   title:    custom card header text
+ *   entry_id: only show entities from this one config entry (for setups
+ *             with several OBS installations)
+ *   scene:    pin the card to exactly this scene - skips the scenes list
+ *             and starts straight at that scene's sources, so you can add
+ *             one card per scene instead of one shared drill-down card
+ *
  * No build step / framework dependency on purpose - this is a plain
  * custom element so it can be served as-is.
  */
@@ -41,8 +49,13 @@
   class ObsSceneTreeCard extends HTMLElement {
     setConfig(config) {
       this._config = config || {};
-      this._level = "scenes";
-      this._scene = null;
+      // "scene" pins the card to one scene (for a "one card per scene"
+      // dashboard layout): it skips the scenes list entirely and starts
+      // straight at that scene's sources, with no way to navigate to any
+      // other scene from this card instance.
+      const pinnedScene = this._config.scene || null;
+      this._level = pinnedScene ? "sources" : "scenes";
+      this._scene = pinnedScene;
       this._source = null;
     }
 
@@ -135,6 +148,12 @@
     }
 
     _go(level, scene, source) {
+      // A pinned card never shows the scenes list, so there's nothing to
+      // navigate back to beyond its own scene.
+      if (this._config.scene && level === "scenes") {
+        level = "sources";
+        scene = this._config.scene;
+      }
       this._level = level;
       this._scene = scene === undefined ? this._scene : scene;
       this._source = source === undefined ? this._source : source;
@@ -256,9 +275,8 @@
     }
 
     _renderHeader() {
-      const crumbs = [
-        { label: "Szenen", level: "scenes" },
-      ];
+      const pinned = !!this._config.scene;
+      const crumbs = pinned ? [] : [{ label: "Szenen", level: "scenes" }];
       if (this._level === "sources" || this._level === "filters") {
         crumbs.push({ label: this._scene, level: "sources" });
       }
@@ -304,9 +322,16 @@
       }
 
       if (this._level === "sources") {
+        const allScenes = this._scenes();
+        if (!allScenes.length) {
+          return `<div class="otc-empty">Noch keine Daten. In den Integrations-Optionen "Szenen-Baum aktivieren" einschalten und kurz warten, bis einmal abgefragt wurde.</div>`;
+        }
+        if (this._config.scene && !allScenes.includes(this._scene)) {
+          return `<div class="otc-empty">Szene "${esc(this._scene)}" nicht gefunden. Name in der Karten-Konfiguration (Feld "scene") prüfen, Groß-/Kleinschreibung muss exakt stimmen.</div>`;
+        }
         const sources = this._sourcesInScene(this._scene);
         if (!sources.length) {
-          return `<div class="otc-empty">Keine Quellen in dieser Szene gefunden.</div>`;
+          return `<div class="otc-empty">Keine Quellen in dieser Szene.</div>`;
         }
         return sources
           .map(([source, entity]) => {
@@ -358,7 +383,7 @@
         this._root = this.attachShadow({ mode: "open" });
       }
 
-      const title = this._config.title ?? "OBS Szenen";
+      const title = this._config.title ?? this._config.scene ?? "OBS Szenen";
       this._root.innerHTML = `
         ${this._styles()}
         <ha-card header="${esc(title)}">
