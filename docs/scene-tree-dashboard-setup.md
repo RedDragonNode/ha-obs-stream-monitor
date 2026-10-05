@@ -25,7 +25,7 @@ Lovelace-Ressource selbst eintragen. Einmalig von Hand:
 
 1. **Einstellungen → Dashboards** → oben rechts die drei Punkte → **Ressourcen**
 2. **Ressource hinzufügen**
-3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.2`
+3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.3`
 4. **Ressourcentyp:** JavaScript-Modul
 5. Speichern
 
@@ -35,9 +35,17 @@ Modus" (Experten-Modus) einschalten, dann erscheint der Menüpunkt.
 **Wichtig bei künftigen Updates:** Home Assistant/der Browser cached diese JS-Datei hartnäckig
 unter ihrer URL — ein reines Integrations-Update + Neustart reicht oft nicht, die neue
 Version wird angezeigt. Nach jedem Update, das die Karte selbst betrifft, die Ressourcen-URL
-in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.3`) und danach im Browser
+in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.4`) und danach im Browser
 hart neu laden (Strg+Shift+R). Die jeweils aktuelle Versionsnummer steht in den
 Release-Notes.
+
+**Falls der Zugriff über eine eigene Domain mit vorgeschaltetem Reverse-Proxy/CDN läuft**
+(z. B. Cloudflare), kann *das* die JS-Datei zusätzlich unabhängig vom `?v=`-Parameter am
+Rand cachen — dann helfen weder Versionsnummer noch Hard-Refresh im Browser. Erkennbar daran,
+dass ein direkter Aufruf im lokalen Netz (z. B. `http://<HA-Hostname>.local:8123/...`) die
+neue Version zeigt, über die öffentliche Domain aber weiterhin die alte. In dem Fall den
+Cache des Proxys/CDN gezielt leeren (bei Cloudflare z. B. Caching → Configuration →
+"Purge Everything", oder gezielt die URL `/obs_stream_monitor_card/*` purgen).
 
 ## 3. Karte zu einem Dashboard hinzufügen
 
@@ -117,3 +125,4 @@ anordnen.
 | Nach einem Update verhält sich die Karte noch wie vorher (z. B. `scene`-Feld ohne Wirkung) | Alte JS-Datei noch im Cache - weder Integrations-Update+Neustart noch normales Neuladen der Seite erzwingen das Nachladen | Ressourcen-URL um `?v=<neue Version>` ergänzen (siehe oben) und hart neu laden (Strg+Shift+R); zusätzlich prüfen, ob die Integration wirklich auf der neuen Version ist (Geräte & Dienste → OBS Stream Monitor) |
 | Karte zeigt "Noch keine Daten" dauerhaft | Schritt 1 (Szenen-Baum aktivieren) nicht gemacht, oder OBS gerade nicht erreichbar | Integrations-Optionen prüfen; Sensor "Aktuelle Szene" sollte einen Wert zeigen |
 | Schalter lässt sich nicht bedienen (ausgegraut) | Entität aktuell "nicht verfügbar", meist weil OBS nicht läuft oder die Quelle/der Filter inzwischen umbenannt/gelöscht wurde | OBS-Erreichbarkeit prüfen; bei Umbenennung siehe "Bekannte Einschränkungen" oben |
+| Neue Version zeigt sich im lokalen Netz (`<HA-Hostname>.local:8123`) korrekt, über die öffentliche Domain aber weiterhin alt | Reverse-Proxy/CDN vor der Domain (z. B. Cloudflare) cached die JS-Datei unabhängig vom `?v=`-Parameter | Cache des Proxys/CDN gezielt leeren (siehe "Wichtig bei künftigen Updates" oben) |
