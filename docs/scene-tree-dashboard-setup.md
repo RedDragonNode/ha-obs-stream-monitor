@@ -25,12 +25,19 @@ Lovelace-Ressource selbst eintragen. Einmalig von Hand:
 
 1. **Einstellungen → Dashboards** → oben rechts die drei Punkte → **Ressourcen**
 2. **Ressource hinzufügen**
-3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js`
+3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.2`
 4. **Ressourcentyp:** JavaScript-Modul
 5. Speichern
 
 Falls der Dialog "Ressourcen" nicht sichtbar ist: unten links im Profil den "erweiterten
 Modus" (Experten-Modus) einschalten, dann erscheint der Menüpunkt.
+
+**Wichtig bei künftigen Updates:** Home Assistant/der Browser cached diese JS-Datei hartnäckig
+unter ihrer URL — ein reines Integrations-Update + Neustart reicht oft nicht, die neue
+Version wird angezeigt. Nach jedem Update, das die Karte selbst betrifft, die Ressourcen-URL
+in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.3`) und danach im Browser
+hart neu laden (Strg+Shift+R). Die jeweils aktuelle Versionsnummer steht in den
+Release-Notes.
 
 ## 3. Karte zu einem Dashboard hinzufügen
 
@@ -85,6 +92,11 @@ anordnen.
   Quelle, mit Schalter für aktiv/inaktiv.
 - Über die Brotkrumen-Navigation oben (Szenen › Szenenname › Quellenname) geht's wieder
   zurück.
+- Unter jeder Quelle und jedem Filter steht klein die zugehörige Entitäts-ID
+  (z. B. `switch.obs_sceneitem_...`). Draufklicken kopiert sie in die Zwischenablage -
+  praktisch, um sie in Automatisierungen, Skripten oder anderen Dashboards zu
+  verwenden, ohne sie vorher unter Einstellungen → Entitäten suchen zu müssen. Der Klick
+  darauf navigiert nicht in die nächste Ebene, er kopiert nur.
 
 ## Bekannte Einschränkungen
 
@@ -102,5 +114,6 @@ anordnen.
 | Symptom | Ursache | Lösung |
 |---|---|---|
 | Karte "OBS Szenen-Baum" taucht beim Kartenhinzufügen nicht auf | Ressource (Schritt 2) fehlt oder falsch eingetragen, oder Browser-Cache | URL exakt prüfen, Seite neu laden (Strg+Shift+R) |
+| Nach einem Update verhält sich die Karte noch wie vorher (z. B. `scene`-Feld ohne Wirkung) | Alte JS-Datei noch im Cache - weder Integrations-Update+Neustart noch normales Neuladen der Seite erzwingen das Nachladen | Ressourcen-URL um `?v=<neue Version>` ergänzen (siehe oben) und hart neu laden (Strg+Shift+R); zusätzlich prüfen, ob die Integration wirklich auf der neuen Version ist (Geräte & Dienste → OBS Stream Monitor) |
 | Karte zeigt "Noch keine Daten" dauerhaft | Schritt 1 (Szenen-Baum aktivieren) nicht gemacht, oder OBS gerade nicht erreichbar | Integrations-Optionen prüfen; Sensor "Aktuelle Szene" sollte einen Wert zeigen |
 | Schalter lässt sich nicht bedienen (ausgegraut) | Entität aktuell "nicht verfügbar", meist weil OBS nicht läuft oder die Quelle/der Filter inzwischen umbenannt/gelöscht wurde | OBS-Erreichbarkeit prüfen; bei Umbenennung siehe "Bekannte Einschränkungen" oben |

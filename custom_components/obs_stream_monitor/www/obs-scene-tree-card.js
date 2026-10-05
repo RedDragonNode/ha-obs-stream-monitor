@@ -147,6 +147,31 @@
       });
     }
 
+    async _copyToClipboard(text) {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (err) {
+        // fall through to the legacy fallback below
+      }
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch (err) {
+        return false;
+      }
+    }
+
     _go(level, scene, source) {
       // A pinned card never shows the scenes list, so there's nothing to
       // navigate back to beyond its own scene.
@@ -254,7 +279,32 @@
           }
           .otc-toggle input:checked + .otc-slider::before { transform: translateX(16px); }
           .otc-toggle input:disabled + .otc-slider { opacity: 0.4; cursor: default; }
+          .otc-entity-id {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-family: var(--code-font-family, ui-monospace, "SFMono-Regular", Consolas, monospace);
+            color: var(--secondary-text-color);
+            margin-top: 2px;
+            cursor: pointer;
+            width: fit-content;
+          }
+          .otc-entity-id:hover { color: var(--primary-color); }
+          .otc-entity-id ha-icon {
+            --mdc-icon-size: 14px;
+            flex: 0 0 auto;
+          }
         </style>
+      `;
+    }
+
+    _renderEntityId(entity) {
+      return `
+        <span class="otc-entity-id" data-copy-entity="${esc(entity.entity_id)}" title="Klicken zum Kopieren">
+          <ha-icon icon="mdi:content-copy"></ha-icon>
+          ${esc(entity.entity_id)}
+        </span>
       `;
     }
 
@@ -344,6 +394,7 @@
                   <div class="otc-main">
                     <span class="otc-title">${esc(source)}</span>
                     <span class="otc-subtitle">${kind}${filterNote}</span>
+                    ${this._renderEntityId(entity)}
                   </div>
                   <span class="otc-chevron">›</span>
                 </div>
@@ -368,6 +419,7 @@
                 <div class="otc-main">
                   <span class="otc-title">${esc(entity.attributes.filter)}</span>
                   <span class="otc-subtitle">${kind}</span>
+                  ${this._renderEntityId(entity)}
                 </div>
               </div>
               ${this._renderToggle(entity)}
@@ -404,6 +456,18 @@
       this._root.querySelectorAll("input[data-toggle-entity]").forEach((el) => {
         el.addEventListener("change", (ev) => {
           this._toggle(el.dataset.toggleEntity, ev.target.checked);
+        });
+      });
+      this._root.querySelectorAll("[data-copy-entity]").forEach((el) => {
+        el.addEventListener("click", async (ev) => {
+          ev.stopPropagation();
+          const entityId = el.dataset.copyEntity;
+          const ok = await this._copyToClipboard(entityId);
+          const icon = el.querySelector("ha-icon");
+          if (icon) {
+            icon.setAttribute("icon", ok ? "mdi:check" : "mdi:alert-circle-outline");
+            setTimeout(() => icon.setAttribute("icon", "mdi:content-copy"), 1200);
+          }
         });
       });
     }
