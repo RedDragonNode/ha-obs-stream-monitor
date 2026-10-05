@@ -15,12 +15,14 @@ from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
     CONF_ENABLE_CONTROL,
+    CONF_ENABLE_SCENE_TREE,
     CONF_SSH_PASSWORD,
     CONF_SSH_PORT,
     CONF_SSH_USERNAME,
     CONF_TASK_NAME,
     CONNECT_TIMEOUT,
     DEFAULT_ENABLE_CONTROL,
+    DEFAULT_ENABLE_SCENE_TREE,
     DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_SSH_PORT,
@@ -98,12 +100,15 @@ class ObsStreamMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ObsStreamMonitorOptionsFlow(config_entries.OptionsFlow):
-    """Optional extras: the 'OBS starten' button (SSH + Scheduled Task) and
-    switchable profile/scene-collection selects.
+    """Optional extras: the 'OBS starten' button (SSH + Scheduled Task),
+    switchable profile/scene-collection selects, and the scene/source/
+    filter switch tree used by the bundled dashboard card.
 
     All fields are optional and independent of each other: leaving the SSH
     username empty keeps the button off; leaving "OBS-Steuerung aktivieren"
-    off keeps the selects off. Either way the base entry stays
+    off keeps the profile/scene-collection selects off; leaving
+    "Szenen-Baum aktivieren" off keeps the scene-item/filter switches (and
+    the dashboard card's data) off. Either way the base entry stays
     monitoring-only.
     """
 
@@ -132,6 +137,10 @@ class ObsStreamMonitorOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_ENABLE_CONTROL,
                     default=current.get(CONF_ENABLE_CONTROL, DEFAULT_ENABLE_CONTROL),
+                ): bool,
+                vol.Optional(
+                    CONF_ENABLE_SCENE_TREE,
+                    default=current.get(CONF_ENABLE_SCENE_TREE, DEFAULT_ENABLE_SCENE_TREE),
                 ): bool,
             }
         )

@@ -24,13 +24,14 @@
     "step": {
       "init": {
         "title": "Advanced features (optional)",
-        "description": "Everything below stays blank/off for monitoring only. Fill in the SSH fields for the 'Start OBS' button (requires OpenSSH Server on Windows and a Scheduled Task, see docs). 'Enable OBS control' additionally unlocks dropdowns to switch profile and scene collection - only usable while OBS is running.",
+        "description": "Everything below stays blank/off for monitoring only. Fill in the SSH fields for the 'Start OBS' button (requires OpenSSH Server on Windows and a Scheduled Task, see docs). 'Enable OBS control' additionally unlocks dropdowns to switch profile and scene collection. 'Enable scene tree' adds switches for source visibility and filters per scene/source, usable via the bundled dashboard card (see docs) - all of it only usable while OBS is running.",
         "data": {
           "ssh_username": "SSH username",
           "ssh_password": "SSH password",
           "ssh_port": "SSH port",
           "task_name": "Scheduled task name",
-          "enable_control": "Enable OBS control (switch profile/scene collection)"
+          "enable_control": "Enable OBS control (switch profile/scene collection)",
+          "enable_scene_tree": "Enable scene tree (sources/filters as switches)"
         }
       }
     }

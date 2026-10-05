@@ -25,6 +25,7 @@ class ObsStreamMonitorCoordinator(DataUpdateCoordinator[dict]):
         host: str,
         port: int,
         password: str,
+        enable_scene_tree: bool = False,
     ) -> None:
         super().__init__(
             hass,
@@ -35,6 +36,7 @@ class ObsStreamMonitorCoordinator(DataUpdateCoordinator[dict]):
         self._host = host
         self._port = port
         self._password = password
+        self._enable_scene_tree = enable_scene_tree
         self._client: obsws.ReqClient | None = None
 
         # State kept between polls to derive a bitrate from cumulative byte counts
@@ -59,6 +61,49 @@ class ObsStreamMonitorCoordinator(DataUpdateCoordinator[dict]):
                 pass
         self._client = None
 
+    def _fetch_scene_tree(self, client: obsws.ReqClient) -> dict[str, list[dict]]:
+        """Build {scene_name: [{source_name, scene_item_id, enabled, source_kind, filters}]}.
+
+        obsws-python only snake_cases the top-level response keys, not the
+        items inside nested lists - so entries in scene_list.scenes,
+        scene_item_list.scene_items and filter_list.filters keep OBS's
+        original camelCase keys (sceneName, sourceName, sceneItemEnabled,
+        filterEnabled, ...). Groups (nested scenes) are not recursed into.
+        """
+        tree: dict[str, list[dict]] = {}
+        scenes = client.get_scene_list()
+        for scene in getattr(scenes, "scenes", None) or []:
+            scene_name = scene.get("sceneName")
+            if not scene_name:
+                continue
+            items: list[dict] = []
+            scene_items = client.get_scene_item_list(scene_name)
+            for item in getattr(scene_items, "scene_items", None) or []:
+                source_name = item.get("sourceName")
+                if not source_name:
+                    continue
+                filters: list[dict] = []
+                filter_list = client.get_source_filter_list(source_name)
+                for flt in getattr(filter_list, "filters", None) or []:
+                    filters.append(
+                        {
+                            "name": flt.get("filterName"),
+                            "enabled": bool(flt.get("filterEnabled")),
+                            "kind": flt.get("filterKind"),
+                        }
+                    )
+                items.append(
+                    {
+                        "source_name": source_name,
+                        "scene_item_id": item.get("sceneItemId"),
+                        "enabled": bool(item.get("sceneItemEnabled")),
+                        "source_kind": item.get("inputKind") or item.get("sourceType"),
+                        "filters": filters,
+                    }
+                )
+            tree[scene_name] = items
+        return tree
+
     def _fetch_data(self) -> dict:
         client = self._ensure_client()
 
@@ -69,6 +114,7 @@ class ObsStreamMonitorCoordinator(DataUpdateCoordinator[dict]):
             stats = client.get_stats()
             profiles = client.get_profile_list()
             scene_collections = client.get_scene_collection_list()
+            scene_tree = self._fetch_scene_tree(client) if self._enable_scene_tree else None
         except Exception:
             # Connection likely dropped (OBS closed/restarted) - reconnect next poll
             self._reset_client()
@@ -111,6 +157,7 @@ class ObsStreamMonitorCoordinator(DataUpdateCoordinator[dict]):
             "scene_collection_list": list(
                 getattr(scene_collections, "scene_collections", None) or []
             ),
+            "scene_tree": scene_tree,
         }
 
     async def _async_update_data(self) -> dict:

@@ -1,6 +1,6 @@
 # OBS Stream Monitor for Home Assistant
 
-A Home Assistant custom integration that pulls read-only stream/recording stats from [OBS Studio](https://obsproject.com/) via its built-in [obs-websocket v5](https://github.com/obsproject/obs-websocket) server, plus two optional extras: a button to launch OBS itself on the remote machine, and dropdowns to switch OBS's profile and scene collection.
+A Home Assistant custom integration that pulls read-only stream/recording stats from [OBS Studio](https://obsproject.com/) via its built-in [obs-websocket v5](https://github.com/obsproject/obs-websocket) server, plus three optional extras: a button to launch OBS itself on the remote machine, dropdowns to switch OBS's profile and scene collection, and a click-through dashboard card for OBS's scenes/sources/filters with visibility and filter toggles.
 
 ## Requirements
 
@@ -48,8 +48,10 @@ Settings -> Devices & Services -> Add Integration -> "OBS Stream Monitor"
 | OBS starten | button | Triggers a Windows Scheduled Task that launches OBS (only appears once SSH is configured, see below) |
 | OBS Profil | select | Switches OBS's active profile (only appears once "OBS-Steuerung aktivieren" is on, see below) |
 | OBS Szenensammlung | select | Switches OBS's active scene collection (only appears once "OBS-Steuerung aktivieren" is on, see below) |
+| *(dynamic, one per scene/source)* | switch | Shows/hides a source within one scene (only appears once "Szenen-Baum aktivieren" is on, see below) |
+| *(dynamic, one per source/filter)* | switch | Enables/disables one filter on a source (only appears once "Szenen-Baum aktivieren" is on, see below) |
 
-Entities are polled every 10 seconds. The two select entities go "not available" whenever OBS itself does, since switching only makes sense while it's actually running.
+Entities are polled every 10 seconds. The select and switch entities go "not available" whenever OBS itself does, since switching only makes sense while it's actually running.
 
 ### A note on bitrate
 
@@ -75,6 +77,16 @@ The two sensors "Aktuelles Profil" and "Aktuelle Szenensammlung" are always ther
 Picking a value in either one switches it in OBS immediately, the same as picking it from OBS's own menus. Both go "not available" whenever OBS itself does, since switching only makes sense while it's actually running.
 
 This is actual control, not monitoring, so it's off by default like the SSH start button — leave the checkbox unticked to keep the integration read-only.
+
+## Optional: scene/source/filter dashboard card
+
+Turn on "Szenen-Baum aktivieren" in the integration's Configure dialog to get switch entities for every source's visibility within each scene, and for every filter on every source — plus a bundled dashboard card ("OBS Szenen-Baum") that presents them as a click-through tree: scenes → that scene's sources (with a visibility toggle) → that source's filters (with an enable toggle).
+
+This needs two one-time setup steps (adding the card's resource, then adding the card to a dashboard) that Home Assistant doesn't allow an integration to do for you automatically.
+
+**Full step-by-step setup, including the resource/dashboard steps and a troubleshooting table, is in [docs/scene-tree-dashboard-setup.md](docs/scene-tree-dashboard-setup.md).**
+
+This is actual control, not monitoring, so it's off by default like the other extras — leave the checkbox unticked to keep the integration read-only. Note: this adds extra obs-websocket requests per poll (one per scene, plus one per source for its filters), which is negligible for a normal streaming setup but worth knowing if you have an unusually large number of scenes.
 
 ### Multiple OBS installations
 

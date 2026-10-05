@@ -131,6 +131,7 @@ class ObsStreamMonitorSensor(CoordinatorEntity[ObsStreamMonitorCoordinator], Sen
     ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
+        self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
@@ -138,6 +139,17 @@ class ObsStreamMonitorSensor(CoordinatorEntity[ObsStreamMonitorCoordinator], Sen
             manufacturer="OBS Project",
             model="obs-websocket v5",
         )
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        # Lets the bundled "OBS Szenen-Baum" dashboard card (and anything
+        # else) find specific sensors (e.g. the current-scene one) reliably,
+        # without depending on entity_id naming.
+        return {
+            "obs_role": "sensor",
+            "obs_data_key": self.entity_description.data_key,
+            "obs_entry_id": self._entry.entry_id,
+        }
 
     @property
     def native_value(self):
