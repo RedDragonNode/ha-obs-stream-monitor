@@ -65,9 +65,16 @@ Leave the SSH fields in the integration's Configure dialog empty to keep this in
 
 ## Optional: switching profile / scene collection from Home Assistant
 
-Turn on "OBS-Steuerung aktivieren" in the integration's Configure dialog to get two select entities — "OBS Profil" and "OBS Szenensammlung" — populated live from whatever profiles and scene collections currently exist in OBS. Picking one in Home Assistant switches it in OBS immediately, the same as picking it from OBS's own menus.
+The two sensors "Aktuelles Profil" and "Aktuelle Szenensammlung" are always there. The matching dropdowns to actually switch them are a separate, off-by-default control feature — this is what to do to turn them on:
 
-This is actual control, not monitoring, so it's off by default like the SSH start button — leave it off to keep the integration read-only.
+1. **Settings -> Devices & Services -> OBS Stream Monitor -> Configure**
+2. Scroll to the bottom and check **"OBS-Steuerung aktivieren (Profil/Szenensammlung wechseln)"**
+3. Submit — the entry reloads itself, no restart needed
+4. Two new select entities now show up under the device's "Steuerung" card: **"OBS Profil"** and **"OBS Szenensammlung"**, populated live from whatever profiles/scene collections currently exist in OBS
+
+Picking a value in either one switches it in OBS immediately, the same as picking it from OBS's own menus. Both go "not available" whenever OBS itself does, since switching only makes sense while it's actually running.
+
+This is actual control, not monitoring, so it's off by default like the SSH start button — leave the checkbox unticked to keep the integration read-only.
 
 ### Multiple OBS installations
 
