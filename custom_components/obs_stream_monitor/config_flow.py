@@ -14,11 +14,13 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
+    CONF_ENABLE_CONTROL,
     CONF_SSH_PASSWORD,
     CONF_SSH_PORT,
     CONF_SSH_USERNAME,
     CONF_TASK_NAME,
     CONNECT_TIMEOUT,
+    DEFAULT_ENABLE_CONTROL,
     DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_SSH_PORT,
@@ -96,10 +98,13 @@ class ObsStreamMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ObsStreamMonitorOptionsFlow(config_entries.OptionsFlow):
-    """Options for the 'OBS starten' button (SSH + Scheduled Task).
+    """Optional extras: the 'OBS starten' button (SSH + Scheduled Task) and
+    switchable profile/scene-collection selects.
 
-    All fields are optional: leaving the SSH username empty keeps this
-    integration monitoring-only and no button entity is created.
+    All fields are optional and independent of each other: leaving the SSH
+    username empty keeps the button off; leaving "OBS-Steuerung aktivieren"
+    off keeps the selects off. Either way the base entry stays
+    monitoring-only.
     """
 
     def __init__(self, config_entry: ConfigEntry) -> None:
@@ -124,6 +129,10 @@ class ObsStreamMonitorOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_TASK_NAME, default=current.get(CONF_TASK_NAME, DEFAULT_TASK_NAME)
                 ): str,
+                vol.Optional(
+                    CONF_ENABLE_CONTROL,
+                    default=current.get(CONF_ENABLE_CONTROL, DEFAULT_ENABLE_CONTROL),
+                ): bool,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -23,13 +23,14 @@
   "options": {
     "step": {
       "init": {
-        "title": "Start OBS over SSH (optional)",
-        "description": "Leave blank for monitoring only. Fill in to get the 'Start OBS' button - requires OpenSSH Server on Windows and a Scheduled Task that launches OBS ('Only run when user is logged on').",
+        "title": "Advanced features (optional)",
+        "description": "Everything below stays blank/off for monitoring only. Fill in the SSH fields for the 'Start OBS' button (requires OpenSSH Server on Windows and a Scheduled Task, see docs). 'Enable OBS control' additionally unlocks dropdowns to switch profile and scene collection - only usable while OBS is running.",
         "data": {
           "ssh_username": "SSH username",
           "ssh_password": "SSH password",
           "ssh_port": "SSH port",
-          "task_name": "Scheduled task name"
+          "task_name": "Scheduled task name",
+          "enable_control": "Enable OBS control (switch profile/scene collection)"
         }
       }
     }
@@ -43,7 +44,9 @@
       "record_duration": { "name": "Recording duration" },
       "cpu_usage": { "name": "CPU usage (OBS)" },
       "free_disk_gb": { "name": "Free disk space" },
-      "active_fps": { "name": "Current FPS" }
+      "active_fps": { "name": "Current FPS" },
+      "current_profile": { "name": "Current profile" },
+      "current_scene_collection": { "name": "Current scene collection" }
     },
     "binary_sensor": {
       "stream_active": { "name": "Live stream" },
@@ -51,6 +54,10 @@
     },
     "button": {
       "start_obs": { "name": "Start OBS" }
+    },
+    "select": {
+      "obs_profile": { "name": "OBS profile" },
+      "obs_scene_collection": { "name": "OBS scene collection" }
     }
   }
 }

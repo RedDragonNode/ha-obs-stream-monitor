@@ -23,13 +23,14 @@
   "options": {
     "step": {
       "init": {
-        "title": "OBS-Start per SSH (optional)",
-        "description": "Leer lassen für reines Monitoring. Ausfüllen, um den 'OBS starten'-Button zu bekommen - braucht OpenSSH-Server unter Windows und eine Scheduled Task, die OBS startet ('Nur ausführen, wenn Benutzer angemeldet ist').",
+        "title": "Erweiterte Funktionen (optional)",
+        "description": "Alles unten bleibt leer/aus für reines Monitoring. SSH-Felder ausfüllen für den 'OBS starten'-Button (braucht OpenSSH-Server unter Windows und eine Scheduled Task, siehe Doku). 'OBS-Steuerung aktivieren' schaltet zusätzlich Auswahlfelder zum Wechseln von Profil und Szenensammlung frei - nur nutzbar, solange OBS läuft.",
         "data": {
           "ssh_username": "SSH-Benutzername",
           "ssh_password": "SSH-Passwort",
           "ssh_port": "SSH-Port",
-          "task_name": "Name der Scheduled Task"
+          "task_name": "Name der Scheduled Task",
+          "enable_control": "OBS-Steuerung aktivieren (Profil/Szenensammlung wechseln)"
         }
       }
     }
@@ -43,7 +44,9 @@
       "record_duration": { "name": "Aufnahme-Dauer" },
       "cpu_usage": { "name": "CPU-Auslastung (OBS)" },
       "free_disk_gb": { "name": "Freier Speicherplatz" },
-      "active_fps": { "name": "Aktuelle FPS" }
+      "active_fps": { "name": "Aktuelle FPS" },
+      "current_profile": { "name": "Aktuelles Profil" },
+      "current_scene_collection": { "name": "Aktuelle Szenensammlung" }
     },
     "binary_sensor": {
       "stream_active": { "name": "Livestream" },
@@ -51,6 +54,10 @@
     },
     "button": {
       "start_obs": { "name": "OBS starten" }
+    },
+    "select": {
+      "obs_profile": { "name": "OBS Profil" },
+      "obs_scene_collection": { "name": "OBS Szenensammlung" }
     }
   }
 }

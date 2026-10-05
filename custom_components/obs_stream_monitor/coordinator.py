@@ -67,6 +67,8 @@ class ObsStreamMonitorCoordinator(DataUpdateCoordinator[dict]):
             stream = client.get_stream_status()
             record = client.get_record_status()
             stats = client.get_stats()
+            profiles = client.get_profile_list()
+            scene_collections = client.get_scene_collection_list()
         except Exception:
             # Connection likely dropped (OBS closed/restarted) - reconnect next poll
             self._reset_client()
@@ -101,6 +103,14 @@ class ObsStreamMonitorCoordinator(DataUpdateCoordinator[dict]):
             "cpu_usage": round(getattr(stats, "cpu_usage", 0) or 0, 1),
             "free_disk_gb": round(available_disk_mb / 1024, 2) if available_disk_mb is not None else None,
             "active_fps": round(getattr(stats, "active_fps", 0) or 0, 2),
+            "current_profile": getattr(profiles, "current_profile_name", None),
+            "profile_list": list(getattr(profiles, "profiles", None) or []),
+            "current_scene_collection": getattr(
+                scene_collections, "current_scene_collection_name", None
+            ),
+            "scene_collection_list": list(
+                getattr(scene_collections, "scene_collections", None) or []
+            ),
         }
 
     async def _async_update_data(self) -> dict:

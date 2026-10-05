@@ -1,6 +1,6 @@
 # OBS Stream Monitor for Home Assistant
 
-A Home Assistant custom integration that pulls read-only stream/recording stats from [OBS Studio](https://obsproject.com/) via its built-in [obs-websocket v5](https://github.com/obsproject/obs-websocket) server, plus an optional button to launch OBS itself on the remote machine.
+A Home Assistant custom integration that pulls read-only stream/recording stats from [OBS Studio](https://obsproject.com/) via its built-in [obs-websocket v5](https://github.com/obsproject/obs-websocket) server, plus two optional extras: a button to launch OBS itself on the remote machine, and dropdowns to switch OBS's profile and scene collection.
 
 ## Requirements
 
@@ -42,10 +42,14 @@ Settings -> Devices & Services -> Add Integration -> "OBS Stream Monitor"
 | CPU-Auslastung (OBS) | sensor | OBS-reported CPU usage, percent |
 | Freier Speicherplatz | sensor | Free space on OBS's recording output disk, GB |
 | Aktuelle FPS | sensor | OBS's currently active render FPS |
+| Aktuelles Profil | sensor | Name of OBS's currently active profile |
+| Aktuelle Szenensammlung | sensor | Name of OBS's currently active scene collection |
 
 | OBS starten | button | Triggers a Windows Scheduled Task that launches OBS (only appears once SSH is configured, see below) |
+| OBS Profil | select | Switches OBS's active profile (only appears once "OBS-Steuerung aktivieren" is on, see below) |
+| OBS Szenensammlung | select | Switches OBS's active scene collection (only appears once "OBS-Steuerung aktivieren" is on, see below) |
 
-Entities are polled every 10 seconds.
+Entities are polled every 10 seconds. The two select entities go "not available" whenever OBS itself does, since switching only makes sense while it's actually running.
 
 ### A note on bitrate
 
@@ -58,6 +62,12 @@ obs-websocket can only talk to OBS once it's already running, so starting OBS co
 Leave the SSH fields in the integration's Configure dialog empty to keep this integration monitoring-only.
 
 **Full step-by-step setup (including the two gotchas that actually bite — firewall network profile, and Microsoft-account password sign-in) is in [docs/ssh-start-button-setup.md](docs/ssh-start-button-setup.md).**
+
+## Optional: switching profile / scene collection from Home Assistant
+
+Turn on "OBS-Steuerung aktivieren" in the integration's Configure dialog to get two select entities — "OBS Profil" and "OBS Szenensammlung" — populated live from whatever profiles and scene collections currently exist in OBS. Picking one in Home Assistant switches it in OBS immediately, the same as picking it from OBS's own menus.
+
+This is actual control, not monitoring, so it's off by default like the SSH start button — leave it off to keep the integration read-only.
 
 ### Multiple OBS installations
 

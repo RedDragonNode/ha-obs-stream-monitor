@@ -91,6 +91,18 @@ SENSOR_DESCRIPTIONS: tuple[ObsSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         data_key="active_fps",
     ),
+    ObsSensorEntityDescription(
+        key="current_profile",
+        translation_key="current_profile",
+        icon="mdi:account-cog-outline",
+        data_key="current_profile",
+    ),
+    ObsSensorEntityDescription(
+        key="current_scene_collection",
+        translation_key="current_scene_collection",
+        icon="mdi:folder-multiple-image",
+        data_key="current_scene_collection",
+    ),
 )
 
 
