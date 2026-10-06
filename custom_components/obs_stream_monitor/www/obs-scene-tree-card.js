@@ -632,10 +632,27 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
       return String(raw).split("-")[0].toLowerCase();
     }
 
+    // Looks up a "kind" in OBS_SETTINGS_LABELS, or null if unknown. Some
+    // built-in OBS sources exist in versioned variants on the wire - e.g.
+    // newer OBS builds report "text_gdiplus_v3" / "color_source_v3" instead
+    // of the plain "text_gdiplus" / "color_source" id (OBS keeps the old,
+    // unsuffixed id registered too, for loading old scene collections, but
+    // newly created sources get the versioned one). The settings fields are
+    // the same set either way, just with revised internal defaults - so if
+    // the exact (possibly versioned) kind isn't in the table, retry with
+    // any trailing "_v<digits>" stripped before giving up.
+    _kindEntry(kind) {
+      if (!kind) return null;
+      if (OBS_SETTINGS_LABELS[kind]) return OBS_SETTINGS_LABELS[kind];
+      const stripped = kind.replace(/_v\d+$/, "");
+      if (stripped !== kind && OBS_SETTINGS_LABELS[stripped]) return OBS_SETTINGS_LABELS[stripped];
+      return null;
+    }
+
     // Nicer display name for a recognized source/filter "kind", or null if
     // this kind isn't in the lookup table (see obs-settings-labels.js).
     _kindLabel(kind) {
-      const entry = kind && OBS_SETTINGS_LABELS[kind];
+      const entry = this._kindEntry(kind);
       if (!entry || !entry.label) return null;
       const lang = this._settingsLang();
       return entry.label[lang] || entry.label.en || null;
@@ -647,7 +664,7 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
     // fields ("midpoint_1".."midpoint_9") - if the exact key isn't found,
     // retry with any trailing "_<digits>" stripped.
     _fieldLabel(kind, fieldKey) {
-      const entry = kind && OBS_SETTINGS_LABELS[kind];
+      const entry = this._kindEntry(kind);
       const fields = entry && entry.fields;
       if (!fields) return null;
       let fieldEntry = fields[fieldKey];

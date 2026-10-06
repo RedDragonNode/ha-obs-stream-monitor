@@ -25,7 +25,7 @@ Lovelace-Ressource selbst eintragen. Einmalig von Hand:
 
 1. **Einstellungen → Dashboards** → oben rechts die drei Punkte → **Ressourcen**
 2. **Ressource hinzufügen**
-3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.7`
+3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.9`
 4. **Ressourcentyp:** JavaScript-Modul
 5. Speichern
 
@@ -35,7 +35,7 @@ Modus" (Experten-Modus) einschalten, dann erscheint der Menüpunkt.
 **Wichtig bei künftigen Updates:** Home Assistant/der Browser cached diese JS-Datei hartnäckig
 unter ihrer URL — ein reines Integrations-Update + Neustart reicht oft nicht, die neue
 Version wird angezeigt. Nach jedem Update, das die Karte selbst betrifft, die Ressourcen-URL
-in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.8`) und danach im Browser
+in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.10`) und danach im Browser
 hart neu laden (Strg+Shift+R). Die jeweils aktuelle Versionsnummer steht in den
 Release-Notes.
 
@@ -143,6 +143,10 @@ Wichtig dabei:
 - Solange der Dialog offen ist, pausiert die Karte ihre automatischen Aktualisierungen (seit
   v0.5.7) - vorher gingen noch nicht gespeicherte Eingaben durch die ständigen Live-Updates
   verloren. Nach "Speichern" oder "Abbrechen" aktualisiert sich die Karte sofort wieder normal.
+- Manche eingebauten OBS-Quellen melden ihren "Typ" intern versioniert (z. B.
+  `text_gdiplus_v3` statt `text_gdiplus`, `color_source_v2` statt `color_source`) - seit
+  v0.5.9 erkennt die Übersetzungstabelle das automatisch und zeigt trotzdem die schönen
+  Beschriftungen an.
 
 ## Einstellungen per Automatisierung setzen
 
