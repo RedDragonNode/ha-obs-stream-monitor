@@ -4,12 +4,18 @@
  *
  * Shows OBS's scenes -> sources -> filters as a click-through tree, with
  * toggles for source visibility (the "eye" icon in OBS) and filter
- * enable/disable. It never talks to OBS directly - it just reads/writes
- * the switch.* and sensor.* entities the integration creates once
- * "Szenen-Baum aktivieren" is turned on in the integration's Configure
- * dialog, discovering them via their obs_role/scene/source/filter
- * attributes (set in switch.py / sensor.py) rather than by entity_id, so
- * it keeps working even if entities get renamed.
+ * enable/disable, plus a settings dialog (the gear icon on each source/
+ * filter row) to edit that source's or filter's raw OBS settings (text
+ * content, colors, crop, chroma-key thresholds, ...). The toggles and tree
+ * data come from the switch.* / sensor.* entities the integration creates
+ * once "Szenen-Baum aktivieren" is turned on in the integration's Configure
+ * dialog, discovered via their obs_role/scene/source/filter attributes (set
+ * in switch.py / sensor.py) rather than by entity_id, so it keeps working
+ * even if entities get renamed. The settings dialog is different: there's
+ * no sensible way to turn an arbitrary, source-kind-specific settings blob
+ * into entity state, so it instead calls custom WebSocket commands the
+ * integration registers (see websocket_api.py) directly, fetching/pushing
+ * settings on demand rather than through the usual 10s poll.
  *
  * One-time setup (can't be done by the integration automatically, Home
  * Assistant doesn't allow that): Settings -> Dashboards -> Resources ->
@@ -57,6 +63,9 @@
       this._level = pinnedScene ? "sources" : "scenes";
       this._scene = pinnedScene;
       this._source = null;
+      // Settings-editor dialog state (null = closed). See _openSourceSettings
+      // / _openFilterSettings / _closeModal / _saveModalSettings.
+      this._modal = null;
     }
 
     set hass(hass) {
@@ -294,6 +303,117 @@
             --mdc-icon-size: 14px;
             flex: 0 0 auto;
           }
+          .otc-settings-btn {
+            flex: 0 0 auto;
+            background: none;
+            border: none;
+            color: var(--secondary-text-color);
+            cursor: pointer;
+            padding: 6px;
+            margin-right: 4px;
+            border-radius: 50%;
+            display: inline-flex;
+          }
+          .otc-settings-btn:hover {
+            background: var(--secondary-background-color);
+            color: var(--primary-color);
+          }
+          .otc-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 16px;
+            box-sizing: border-box;
+          }
+          .otc-modal {
+            background: var(--card-background-color, #fff);
+            color: var(--primary-text-color);
+            border-radius: 12px;
+            width: 100%;
+            max-width: 480px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0, 0, 0, 0.3));
+          }
+          .otc-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 16px;
+            border-bottom: 1px solid var(--divider-color);
+          }
+          .otc-modal-title { font-size: 16px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .otc-modal-close {
+            background: none;
+            border: none;
+            color: var(--secondary-text-color);
+            cursor: pointer;
+            padding: 4px;
+            flex: 0 0 auto;
+            display: inline-flex;
+            border-radius: 50%;
+          }
+          .otc-modal-close:hover { background: var(--secondary-background-color); }
+          .otc-modal-body { padding: 16px; overflow-y: auto; flex: 1; }
+          .otc-modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 12px 16px;
+            border-top: 1px solid var(--divider-color);
+          }
+          .otc-btn {
+            font: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+          }
+          .otc-btn-text { background: none; color: var(--primary-text-color); }
+          .otc-btn-text:hover { background: var(--secondary-background-color); }
+          .otc-btn-primary { background: var(--primary-color); color: var(--text-primary-color, #fff); }
+          .otc-btn-primary:disabled { opacity: 0.5; cursor: default; }
+          .otc-field { margin-bottom: 14px; }
+          .otc-field label {
+            display: block;
+            font-size: 12px;
+            color: var(--secondary-text-color);
+            margin-bottom: 4px;
+            font-family: var(--code-font-family, ui-monospace, "SFMono-Regular", Consolas, monospace);
+          }
+          .otc-field input[type="text"],
+          .otc-field input[type="number"],
+          .otc-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            font: inherit;
+            font-size: 14px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--divider-color);
+            background: var(--card-background-color, #fff);
+            color: var(--primary-text-color);
+          }
+          .otc-field textarea { font-family: var(--code-font-family, ui-monospace, monospace); font-size: 12px; resize: vertical; }
+          .otc-field input[type="checkbox"] { width: 18px; height: 18px; }
+          .otc-modal-note { font-size: 12px; color: var(--secondary-text-color); margin: 0 0 14px; }
+          .otc-modal-error {
+            background: var(--error-color, #db4437);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 14px;
+          }
         </style>
       `;
     }
@@ -304,6 +424,35 @@
           <ha-icon icon="mdi:content-copy"></ha-icon>
           Entitäts-ID
         </span>
+      `;
+    }
+
+    _renderSourceSettingsButton(entity) {
+      return `
+        <button
+          class="otc-settings-btn"
+          data-settings-type="source"
+          data-settings-entry="${esc(entity.attributes.obs_entry_id)}"
+          data-settings-source="${esc(entity.attributes.source)}"
+          title="Einstellungen bearbeiten"
+        >
+          <ha-icon icon="mdi:cog-outline"></ha-icon>
+        </button>
+      `;
+    }
+
+    _renderFilterSettingsButton(entity) {
+      return `
+        <button
+          class="otc-settings-btn"
+          data-settings-type="filter"
+          data-settings-entry="${esc(entity.attributes.obs_entry_id)}"
+          data-settings-source="${esc(entity.attributes.source)}"
+          data-settings-filter="${esc(entity.attributes.filter)}"
+          title="Einstellungen bearbeiten"
+        >
+          <ha-icon icon="mdi:cog-outline"></ha-icon>
+        </button>
       `;
     }
 
@@ -397,6 +546,7 @@
                   </div>
                   <span class="otc-chevron">›</span>
                 </div>
+                ${this._renderSourceSettingsButton(entity)}
                 ${this._renderToggle(entity)}
               </div>
             `;
@@ -421,11 +571,230 @@
                   ${this._renderEntityId(entity)}
                 </div>
               </div>
+              ${this._renderFilterSettingsButton(entity)}
               ${this._renderToggle(entity)}
             </div>
           `;
         })
         .join("");
+    }
+
+    // --- settings dialog: data -----------------------------------------
+
+    _settingsFieldType(value) {
+      if (typeof value === "boolean") return "boolean";
+      if (typeof value === "number") return "number";
+      if (typeof value === "string") return "string";
+      return "json"; // object, array, null - edited as raw JSON
+    }
+
+    _renderSettingsFields(settings) {
+      const entries = Object.entries(settings || {});
+      if (!entries.length) {
+        return `<p class="otc-modal-note">Diese Quelle/dieser Filter meldet keine bearbeitbaren Felder.</p>`;
+      }
+      return entries
+        .map(([key, value]) => {
+          const type = this._settingsFieldType(value);
+          if (type === "boolean") {
+            return `
+              <div class="otc-field">
+                <label>${esc(key)}</label>
+                <input type="checkbox" data-field="${esc(key)}" data-type="boolean" ${value ? "checked" : ""}>
+              </div>
+            `;
+          }
+          if (type === "number") {
+            return `
+              <div class="otc-field">
+                <label>${esc(key)}</label>
+                <input type="number" step="any" data-field="${esc(key)}" data-type="number" value="${esc(value)}">
+              </div>
+            `;
+          }
+          if (type === "string") {
+            return `
+              <div class="otc-field">
+                <label>${esc(key)}</label>
+                <input type="text" data-field="${esc(key)}" data-type="string" value="${esc(value)}">
+              </div>
+            `;
+          }
+          // nested object / array / null - shown as raw, editable JSON
+          return `
+            <div class="otc-field">
+              <label>${esc(key)} (JSON)</label>
+              <textarea data-field="${esc(key)}" data-type="json" rows="3">${esc(JSON.stringify(value, null, 2))}</textarea>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    _collectSettingsFromForm(root) {
+      const result = {};
+      root.querySelectorAll("[data-field]").forEach((el) => {
+        const key = el.dataset.field;
+        const type = el.dataset.type;
+        if (type === "boolean") {
+          result[key] = el.checked;
+        } else if (type === "number") {
+          result[key] = el.value === "" ? 0 : Number(el.value);
+        } else if (type === "json") {
+          try {
+            result[key] = JSON.parse(el.value);
+          } catch (err) {
+            throw new Error(`Ungültiges JSON bei "${key}": ${err.message}`);
+          }
+        } else {
+          result[key] = el.value;
+        }
+      });
+      return result;
+    }
+
+    // --- settings dialog: actions ---------------------------------------
+
+    async _openSourceSettings(entryId, sourceName) {
+      this._modal = {
+        type: "source",
+        entryId,
+        source: sourceName,
+        loading: true,
+        saving: false,
+        error: null,
+        kind: null,
+        settings: null,
+      };
+      this._render();
+      try {
+        const resp = await this._hass.callWS({
+          type: "obs_stream_monitor/get_input_settings",
+          entry_id: entryId,
+          source_name: sourceName,
+        });
+        this._modal = { ...this._modal, loading: false, kind: resp.kind, settings: resp.settings };
+      } catch (err) {
+        this._modal = { ...this._modal, loading: false, error: this._wsErrorMessage(err) };
+      }
+      this._render();
+    }
+
+    async _openFilterSettings(entryId, sourceName, filterName) {
+      this._modal = {
+        type: "filter",
+        entryId,
+        source: sourceName,
+        filter: filterName,
+        loading: true,
+        saving: false,
+        error: null,
+        kind: null,
+        settings: null,
+      };
+      this._render();
+      try {
+        const resp = await this._hass.callWS({
+          type: "obs_stream_monitor/get_filter_settings",
+          entry_id: entryId,
+          source_name: sourceName,
+          filter_name: filterName,
+        });
+        this._modal = { ...this._modal, loading: false, kind: resp.kind, settings: resp.settings };
+      } catch (err) {
+        this._modal = { ...this._modal, loading: false, error: this._wsErrorMessage(err) };
+      }
+      this._render();
+    }
+
+    _wsErrorMessage(err) {
+      if (err && typeof err === "object" && err.message) return err.message;
+      return String(err);
+    }
+
+    _closeModal() {
+      this._modal = null;
+      this._render();
+    }
+
+    async _saveModalSettings() {
+      if (!this._modal || this._modal.loading || this._modal.saving) return;
+      const body = this._root.querySelector(".otc-modal-body");
+      let values;
+      try {
+        values = this._collectSettingsFromForm(body);
+      } catch (err) {
+        this._modal.error = err.message;
+        this._render();
+        return;
+      }
+      this._modal.saving = true;
+      this._modal.error = null;
+      this._render();
+      try {
+        if (this._modal.type === "source") {
+          await this._hass.callWS({
+            type: "obs_stream_monitor/set_input_settings",
+            entry_id: this._modal.entryId,
+            source_name: this._modal.source,
+            settings: values,
+          });
+        } else {
+          await this._hass.callWS({
+            type: "obs_stream_monitor/set_filter_settings",
+            entry_id: this._modal.entryId,
+            source_name: this._modal.source,
+            filter_name: this._modal.filter,
+            settings: values,
+          });
+        }
+        this._modal = null;
+      } catch (err) {
+        this._modal.saving = false;
+        this._modal.error = this._wsErrorMessage(err);
+      }
+      this._render();
+    }
+
+    // --- settings dialog: markup ----------------------------------------
+
+    _renderModal() {
+      if (!this._modal) return "";
+      const m = this._modal;
+      const title = m.type === "source" ? m.source : `${m.source} › ${m.filter}`;
+
+      let body;
+      if (m.loading) {
+        body = `<p class="otc-modal-note">Lädt…</p>`;
+      } else if (m.error && !m.settings) {
+        body = `<div class="otc-modal-error">${esc(m.error)}</div>`;
+      } else {
+        body = `
+          ${m.error ? `<div class="otc-modal-error">${esc(m.error)}</div>` : ""}
+          ${m.kind ? `<p class="otc-modal-note">Typ: ${esc(m.kind)}</p>` : ""}
+          ${this._renderSettingsFields(m.settings)}
+        `;
+      }
+
+      return `
+        <div class="otc-modal-backdrop" data-modal-close>
+          <div class="otc-modal" data-modal-stop>
+            <div class="otc-modal-header">
+              <span class="otc-modal-title">Einstellungen: ${esc(title)}</span>
+              <button class="otc-modal-close" data-modal-close title="Schließen">
+                <ha-icon icon="mdi:close"></ha-icon>
+              </button>
+            </div>
+            <div class="otc-modal-body">${body}</div>
+            <div class="otc-modal-footer">
+              <button class="otc-btn otc-btn-text" data-modal-close>Abbrechen</button>
+              <button class="otc-btn otc-btn-primary" data-modal-save ${m.loading || m.saving || (m.error && !m.settings) ? "disabled" : ""}>
+                ${m.saving ? "Speichert…" : "Speichern"}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
     }
 
     _render() {
@@ -441,6 +810,7 @@
           ${this._renderHeader()}
           ${this._renderBody()}
         </ha-card>
+        ${this._renderModal()}
       `;
 
       this._root.querySelectorAll("[data-go-level]").forEach((el) => {
@@ -469,6 +839,33 @@
           }
         });
       });
+      this._root.querySelectorAll("[data-settings-type]").forEach((el) => {
+        el.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          const entryId = el.dataset.settingsEntry;
+          const sourceName = el.dataset.settingsSource;
+          if (el.dataset.settingsType === "source") {
+            this._openSourceSettings(entryId, sourceName);
+          } else {
+            this._openFilterSettings(entryId, sourceName, el.dataset.settingsFilter);
+          }
+        });
+      });
+      const modalEl = this._root.querySelector(".otc-modal-backdrop");
+      if (modalEl) {
+        modalEl.addEventListener("click", () => this._closeModal());
+        const dialogEl = this._root.querySelector("[data-modal-stop]");
+        if (dialogEl) {
+          dialogEl.addEventListener("click", (ev) => ev.stopPropagation());
+        }
+        this._root.querySelectorAll("[data-modal-close]").forEach((el) => {
+          el.addEventListener("click", () => this._closeModal());
+        });
+        const saveBtn = this._root.querySelector("[data-modal-save]");
+        if (saveBtn) {
+          saveBtn.addEventListener("click", () => this._saveModalSettings());
+        }
+      }
     }
   }
 

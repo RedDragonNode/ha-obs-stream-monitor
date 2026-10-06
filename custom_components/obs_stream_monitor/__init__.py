@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import CONF_ENABLE_SCENE_TREE, DOMAIN
 from .coordinator import ObsStreamMonitorCoordinator
+from .websocket_api import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,9 +57,19 @@ async def _async_register_frontend_card(hass: HomeAssistant) -> None:
         )
 
 
+def _async_register_card_backend(hass: HomeAssistant) -> None:
+    """Register the card's settings-editor WS commands. Safe to call once per run."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get("_ws_commands_registered"):
+        return
+    domain_data["_ws_commands_registered"] = True
+    async_register_websocket_commands(hass)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OBS Stream Monitor from a config entry."""
     await _async_register_frontend_card(hass)
+    _async_register_card_backend(hass)
 
     coordinator = ObsStreamMonitorCoordinator(
         hass,

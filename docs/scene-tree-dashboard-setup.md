@@ -25,7 +25,7 @@ Lovelace-Ressource selbst eintragen. Einmalig von Hand:
 
 1. **Einstellungen → Dashboards** → oben rechts die drei Punkte → **Ressourcen**
 2. **Ressource hinzufügen**
-3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.4`
+3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.5`
 4. **Ressourcentyp:** JavaScript-Modul
 5. Speichern
 
@@ -35,9 +35,14 @@ Modus" (Experten-Modus) einschalten, dann erscheint der Menüpunkt.
 **Wichtig bei künftigen Updates:** Home Assistant/der Browser cached diese JS-Datei hartnäckig
 unter ihrer URL — ein reines Integrations-Update + Neustart reicht oft nicht, die neue
 Version wird angezeigt. Nach jedem Update, das die Karte selbst betrifft, die Ressourcen-URL
-in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.5`) und danach im Browser
+in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.6`) und danach im Browser
 hart neu laden (Strg+Shift+R). Die jeweils aktuelle Versionsnummer steht in den
 Release-Notes.
+
+**Updates mit Backend-Änderungen** (steht in den Release-Notes, z. B. "enthält
+Backend-Änderungen") brauchen zusätzlich einen **Neustart von Home Assistant** - ein reiner
+Browser-Hard-Refresh reicht dann nicht, weil sich auch Python-Code geändert hat, nicht nur
+die Karte.
 
 **Falls der Zugriff über eine eigene Domain mit vorgeschaltetem Reverse-Proxy/CDN läuft**
 (z. B. Cloudflare), kann *das* die JS-Datei zusätzlich unabhängig vom `?v=`-Parameter am
@@ -105,6 +110,29 @@ anordnen.
   vollständig in die Zwischenablage - praktisch, um sie in Automatisierungen, Skripten oder
   anderen Dashboards zu verwenden, ohne sie vorher unter Einstellungen → Entitäten suchen zu
   müssen. Der Klick darauf navigiert nicht in die nächste Ebene, er kopiert nur.
+- Neben jeder Quelle und jedem Filter steht außerdem ein **Zahnrad-Symbol**. Ein Klick
+  öffnet einen Dialog zum Bearbeiten der echten OBS-Einstellungen dieser Quelle/dieses
+  Filters (siehe "Einstellungen bearbeiten" unten).
+
+## Einstellungen bearbeiten
+
+Über das Zahnrad-Symbol neben einer Quelle bzw. einem Filter öffnet sich ein Dialog mit
+einem **generischen Formular**: Es zeigt alle Felder, die OBS für diese Quelle/diesen Filter
+zurückgibt, jeweils passend als Text-, Zahlen- oder Häkchen-Feld; verschachtelte Werte
+(Objekte, Listen) erscheinen als JSON-Text zum Bearbeiten. "Speichern" schreibt die
+geänderten Werte direkt zurück nach OBS (`SetInputSettings`/`SetSourceFilterSettings`).
+
+Wichtig dabei:
+
+- Die Feldnamen sind die **rohen, technischen** Namen, wie obs-websocket sie liefert - keine
+  deutschen oder beschönigten Bezeichnungen, wie man sie aus dem OBS-Fenster selbst kennt.
+- Ungültiges JSON in einem JSON-Feld wird vor dem Speichern erkannt und mit einer Fehlermeldung
+  abgelehnt, ohne die bisherigen Eingaben zu verwerfen. Alles andere wird unverändert an OBS
+  weitergegeben - OBS kann einen Wert selbst ablehnen oder sich damit unerwartet verhalten.
+- Das ist eine fortgeschrittene Funktion für alle, die wissen, welches Feld sie ändern wollen
+  (z. B. um eine Textquelle, eine Mediendatei oder Chroma-Key-Werte fernzusteuern, etwa für
+  IRL-Streams/Aufnahmen). Im Zweifel vorher in OBS selbst nachsehen, welchen Effekt ein Feld
+  hat.
 
 ## Bekannte Einschränkungen
 
