@@ -105,17 +105,20 @@ eintragen.
 
 - **Einschalten:** löst dieselbe Scheduled Task aus wie bisher der "OBS starten"-Button
   (Schritt 3).
-- **Ausschalten:** schickt dem Hauptfenster von OBS per SSH/PowerShell ein ganz normales
-  Schließen-Signal (`CloseMainWindow()`) - **kein** hartes Abwürgen. OBS läuft also seine
-  normale Beenden-Routine durch (laufende Aufnahme sauber abschließen, bei aktivem
+- **Ausschalten:** sucht per SSH/PowerShell alle echten Fenster (mit Titelleiste) von OBS
+  - auch ein gerade in den System-Tray minimiertes - und schickt jedem ein ganz normales
+  Schließen-Signal (`WM_CLOSE`), **kein** hartes Abwürgen. OBS läuft also seine normale
+  Beenden-Routine durch (laufende Aufnahme sauber abschließen, bei aktivem
   Stream/Aufnahme ggf. mit Bestätigungsnachfrage), genau wie bei einem Klick auf das
   eigene Schließen-Symbol.
 
-  (Frühere Versionen haben dafür `taskkill` ohne `/F` benutzt - das lehnt Windows bei
-  OBS und vielen anderen gewöhnlichen GUI-Programmen aber grundsätzlich ab, mit der
-  Meldung "Dieser Prozess kann nur zwangsweise beendet werden (mit der Option /F)". Das
-  war kein Zeichen eines echten Problems, nur eine Einschränkung von `taskkill` selbst -
-  seit v0.6.1 läuft das stattdessen über `CloseMainWindow()`.)
+  (Frühere Versionen haben dafür erst `taskkill` ohne `/F` benutzt - das lehnt Windows
+  bei OBS und vielen anderen gewöhnlichen GUI-Programmen aber grundsätzlich ab, mit der
+  Meldung "Dieser Prozess kann nur zwangsweise beendet werden (mit der Option /F)" - und
+  danach .NETs `CloseMainWindow()` (ab v0.6.1), das wiederum ein minimiert-im-Tray
+  laufendes OBS gar nicht erst als "Hauptfenster" erkannt hat. Seit v0.6.2 läuft das
+  stattdessen direkt über die Windows-Fenster-API, die auch versteckte/im-Tray-Fenster
+  findet.)
 
   **Läuft gerade ein Stream oder eine Aufnahme**, zeigt OBS dafür einen
   Bestätigungsdialog **auf dem echten Bildschirm** des Windows-Rechners (dieselbe
@@ -150,8 +153,10 @@ ssh BENUTZERNAME@IP-DES-RECHNERS
 | `Authentication failed` | Benutzername/Passwort falsch, bei Microsoft-Konto nur Kurzname statt voller E-Mail-Adresse verwendet, oder Passwort-Login für das Konto blockiert | Schritt 4 |
 | Schalter lässt sich gar nicht bedienen / fehlt | Integration vor v0.2.1: komplette Einrichtung scheiterte, wenn OBS beim Laden nicht erreichbar war | Auf v0.2.1 oder neuer aktualisieren |
 | `schtasks meldete Exit-Code ...` (beim Einschalten) | Task-Name in HA stimmt nicht exakt mit dem Namen in der Aufgabenplanung überein | Schritt 3 - Name 1:1 abgleichen |
-| `This process can only be terminated forcefully (with /F)` (beim Ausschalten) | Integration vor v0.6.1 benutzte dafür `taskkill`, das diese Einschränkung hat (siehe oben) | Auf v0.6.1 oder neuer aktualisieren |
-| `CloseMainWindow fehlgeschlagen ...` (beim Ausschalten) | Prozessname in HA stimmt nicht mit dem im Task-Manager überein (dann läuft kein passender Prozess, würde aber eigentlich `exit 0` geben - also eher: OBS läuft, aber ganz ohne normales Hauptfenster, sehr ungewöhnlich) | Prozessname in den Optionen prüfen (siehe Schritt 5); prüfen, ob OBS normal mit sichtbarem Fenster läuft |
+| `This process can only be terminated forcefully (with /F)` (beim Ausschalten) | Integration vor v0.6.1 benutzte dafür `taskkill`, das diese Einschränkung hat (siehe oben) | Auf v0.6.2 oder neuer aktualisieren |
+| `CloseMainWindow fehlgeschlagen ...` (beim Ausschalten) | Nur in v0.6.1: .NETs Heuristik fand OBS' Fenster nicht (z. B. weil OBS im Tray minimiert war) | Auf v0.6.2 oder neuer aktualisieren |
+| `Kein Fenster für den Prozess gefunden ...` (beim Ausschalten, ab v0.6.2) | Prozessname in HA stimmt nicht mit dem im Task-Manager überein, oder OBS läuft "als Administrator" während die SSH-Sitzung das nicht ist (unterschiedliche Rechte blockieren das Schließen-Signal) | Prozessname in den Optionen prüfen (siehe Schritt 5); prüfen, ob OBS normal gestartet wurde (nicht "als Administrator") |
+| `Schließen-Signal konnte an kein gefundenes Fenster gesendet werden` (beim Ausschalten, ab v0.6.2) | Fenster wurde gefunden, nimmt das Signal aber nicht an (selten, z. B. während OBS selbst gerade mit etwas anderem beschäftigt ist) | Kurz warten und nochmal versuchen |
 | Schalter zeigt nach "Ausschalten" sofort wieder "an" | OBS läuft noch (Beenden-Dialog wartet auf Bestätigung auf dem Bildschirm, siehe oben), oder braucht noch ein paar Sekunden zum Schließen | Am Bildschirm nachsehen; nächste Abfrage (max. 10s) aktualisiert den Zustand |
 
 ## Mehrere OBS-Installationen (nacheinander genutzt)
