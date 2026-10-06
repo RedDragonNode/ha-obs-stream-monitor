@@ -83,6 +83,24 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
 
     set hass(hass) {
       this._hass = hass;
+      // Home Assistant calls this setter on every single state update
+      // anywhere in the system - as often as every ~10s from this
+      // integration's own poll alone. A normal _render() rebuilds the
+      // whole shadow DOM from scratch, including the settings dialog
+      // (from this._modal.settings), which silently threw away whatever
+      // the user was mid-typing - making the dialog close to unusable.
+      // So: while the dialog is open, skip the automatic re-render
+      // entirely and just keep this._hass current for when it's needed
+      // (WS calls, language lookups). The dialog's own lifecycle
+      // (_openSourceSettings/_openFilterSettings/_closeModal/
+      // _saveModalSettings) already calls _render() explicitly whenever
+      // ITS state actually changes, so nothing is lost by skipping this -
+      // and the rest of the card (hidden behind the dialog anyway) simply
+      // catches up to the latest data the instant the dialog closes,
+      // whether via Speichern, Abbrechen, or the X/backdrop.
+      if (this._modal) {
+        return;
+      }
       this._render();
     }
 
