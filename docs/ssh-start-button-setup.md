@@ -105,11 +105,17 @@ eintragen.
 
 - **Einschalten:** löst dieselbe Scheduled Task aus wie bisher der "OBS starten"-Button
   (Schritt 3).
-- **Ausschalten:** schickt per SSH ein `taskkill` **ohne** `/F` für den eingetragenen
-  Prozessnamen - das bittet OBS, sich normal zu beenden (wie ein Klick auf das eigene
-  Schließen-Symbol), **kein** hartes Abwürgen. OBS läuft also seine normale
-  Beenden-Routine durch (laufende Aufnahme sauber abschließen, bei aktivem
-  Stream/Aufnahme ggf. mit Bestätigungsnachfrage).
+- **Ausschalten:** schickt dem Hauptfenster von OBS per SSH/PowerShell ein ganz normales
+  Schließen-Signal (`CloseMainWindow()`) - **kein** hartes Abwürgen. OBS läuft also seine
+  normale Beenden-Routine durch (laufende Aufnahme sauber abschließen, bei aktivem
+  Stream/Aufnahme ggf. mit Bestätigungsnachfrage), genau wie bei einem Klick auf das
+  eigene Schließen-Symbol.
+
+  (Frühere Versionen haben dafür `taskkill` ohne `/F` benutzt - das lehnt Windows bei
+  OBS und vielen anderen gewöhnlichen GUI-Programmen aber grundsätzlich ab, mit der
+  Meldung "Dieser Prozess kann nur zwangsweise beendet werden (mit der Option /F)". Das
+  war kein Zeichen eines echten Problems, nur eine Einschränkung von `taskkill` selbst -
+  seit v0.6.1 läuft das stattdessen über `CloseMainWindow()`.)
 
   **Läuft gerade ein Stream oder eine Aufnahme**, zeigt OBS dafür einen
   Bestätigungsdialog **auf dem echten Bildschirm** des Windows-Rechners (dieselbe
@@ -144,7 +150,8 @@ ssh BENUTZERNAME@IP-DES-RECHNERS
 | `Authentication failed` | Benutzername/Passwort falsch, bei Microsoft-Konto nur Kurzname statt voller E-Mail-Adresse verwendet, oder Passwort-Login für das Konto blockiert | Schritt 4 |
 | Schalter lässt sich gar nicht bedienen / fehlt | Integration vor v0.2.1: komplette Einrichtung scheiterte, wenn OBS beim Laden nicht erreichbar war | Auf v0.2.1 oder neuer aktualisieren |
 | `schtasks meldete Exit-Code ...` (beim Einschalten) | Task-Name in HA stimmt nicht exakt mit dem Namen in der Aufgabenplanung überein | Schritt 3 - Name 1:1 abgleichen |
-| `Befehl meldete Exit-Code ...` (beim Ausschalten) | Prozessname in HA stimmt nicht mit dem im Task-Manager überein, oder OBS lief zu diesem Zeitpunkt bereits gar nicht mehr | Prozessname in den Optionen prüfen (siehe Schritt 5) |
+| `This process can only be terminated forcefully (with /F)` (beim Ausschalten) | Integration vor v0.6.1 benutzte dafür `taskkill`, das diese Einschränkung hat (siehe oben) | Auf v0.6.1 oder neuer aktualisieren |
+| `CloseMainWindow fehlgeschlagen ...` (beim Ausschalten) | Prozessname in HA stimmt nicht mit dem im Task-Manager überein (dann läuft kein passender Prozess, würde aber eigentlich `exit 0` geben - also eher: OBS läuft, aber ganz ohne normales Hauptfenster, sehr ungewöhnlich) | Prozessname in den Optionen prüfen (siehe Schritt 5); prüfen, ob OBS normal mit sichtbarem Fenster läuft |
 | Schalter zeigt nach "Ausschalten" sofort wieder "an" | OBS läuft noch (Beenden-Dialog wartet auf Bestätigung auf dem Bildschirm, siehe oben), oder braucht noch ein paar Sekunden zum Schließen | Am Bildschirm nachsehen; nächste Abfrage (max. 10s) aktualisiert den Zustand |
 
 ## Mehrere OBS-Installationen (nacheinander genutzt)

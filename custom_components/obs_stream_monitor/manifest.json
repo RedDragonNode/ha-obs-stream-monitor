@@ -8,5 +8,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/RedDragonNode/ha-obs-stream-monitor/issues",
   "requirements": ["obsws-python==1.7.0", "paramiko==3.4.0"],
-  "version": "0.6.0"
+  "version": "0.6.1"
 }
