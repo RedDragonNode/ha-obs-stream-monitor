@@ -18,7 +18,6 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
-    Platform.BUTTON,
     Platform.SELECT,
     Platform.SWITCH,
 ]
@@ -97,12 +96,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     # Deliberately NOT async_config_entry_first_refresh(): that raises
-    # ConfigEntryNotReady and aborts the whole entry - including the
-    # "OBS starten" button platform - whenever OBS/obs-websocket isn't
-    # reachable yet. But "OBS isn't running" is exactly the situation the
-    # button exists to fix, so a failed first poll must not block setup.
-    # async_refresh() just records the failure; sensors then come up as
-    # unavailable (via CoordinatorEntity) while the button stays usable.
+    # ConfigEntryNotReady and aborts the whole entry - including the "OBS"
+    # power switch (switch.py's ObsPowerSwitch) - whenever OBS/obs-websocket
+    # isn't reachable yet. But "OBS isn't running" is exactly the situation
+    # that switch exists to fix, so a failed first poll must not block
+    # setup. async_refresh() just records the failure; regular sensors then
+    # come up as unavailable (via CoordinatorEntity) while the power switch
+    # (which overrides `available` to always be True) stays usable.
     await coordinator.async_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator

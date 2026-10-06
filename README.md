@@ -1,6 +1,6 @@
 # OBS Stream Monitor for Home Assistant
 
-A Home Assistant custom integration that pulls read-only stream/recording stats from [OBS Studio](https://obsproject.com/) via its built-in [obs-websocket v5](https://github.com/obsproject/obs-websocket) server, plus three optional extras: a button to launch OBS itself on the remote machine, dropdowns to switch OBS's profile and scene collection, and a click-through dashboard card for OBS's scenes/sources/filters with visibility and filter toggles.
+A Home Assistant custom integration that pulls read-only stream/recording stats from [OBS Studio](https://obsproject.com/) via its built-in [obs-websocket v5](https://github.com/obsproject/obs-websocket) server, plus optional extras: a switch to launch OBS on the remote machine (or close it again, gracefully), switches to start/stop the stream and recording, dropdowns to switch OBS's profile and scene collection, a service to push raw source/filter settings from automations, and a click-through dashboard card for OBS's scenes/sources/filters with visibility and filter toggles.
 
 ## Requirements
 
@@ -34,6 +34,7 @@ Settings -> Devices & Services -> Add Integration -> "OBS Stream Monitor"
 |---|---|---|
 | Livestream | binary_sensor | On while OBS is actively streaming |
 | Aufnahme | binary_sensor | On while OBS is actively recording |
+| OBS läuft | binary_sensor | On while OBS is reachable over obs-websocket - unlike every other entity here, stays a clean on/off instead of going "not available" when OBS is down, so automations can react to it directly |
 | Aktuelle Szene | sensor | Name of the active program scene |
 | Stream-Dauer | sensor | Seconds since the current stream started |
 | Bitrate | sensor | Output bitrate in kbit/s, derived between polls (see note below) |
@@ -45,38 +46,40 @@ Settings -> Devices & Services -> Add Integration -> "OBS Stream Monitor"
 | Aktuelles Profil | sensor | Name of OBS's currently active profile |
 | Aktuelle Szenensammlung | sensor | Name of OBS's currently active scene collection |
 
-| OBS starten | button | Triggers a Windows Scheduled Task that launches OBS (only appears once SSH is configured, see below) |
+| OBS | switch | Launches OBS via a Windows Scheduled Task, or asks it to close normally (not a forced kill) - only appears once SSH is configured, see below. Like "OBS läuft" above, stays usable even while OBS is unreachable |
+| Stream | switch | Starts/stops the live stream (only appears once "OBS-Steuerung aktivieren" is on, see below) |
+| Aufnahme | switch | Starts/stops recording (only appears once "OBS-Steuerung aktivieren" is on, see below) |
 | OBS Profil | select | Switches OBS's active profile (only appears once "OBS-Steuerung aktivieren" is on, see below) |
 | OBS Szenensammlung | select | Switches OBS's active scene collection (only appears once "OBS-Steuerung aktivieren" is on, see below) |
 | *(dynamic, one per scene/source)* | switch | Shows/hides a source within one scene (only appears once "Szenen-Baum aktivieren" is on, see below) |
 | *(dynamic, one per source/filter)* | switch | Enables/disables one filter on a source (only appears once "Szenen-Baum aktivieren" is on, see below) |
 
-Entities are polled every 10 seconds. The select and switch entities go "not available" whenever OBS itself does, since switching only makes sense while it's actually running.
+Entities are polled every 10 seconds. The select and stream/recording/scene-tree switch entities go "not available" whenever OBS itself does, since switching only makes sense while it's actually running - the "OBS" power switch and the "OBS läuft" sensor are the deliberate exception (see their descriptions above).
 
 ### A note on bitrate
 
 obs-websocket v5 does not expose a direct bitrate field. This integration derives one from the change in `outputBytes` between two polls, divided by the elapsed time. It's a close approximation of what OBS's own stats dock shows, not a value read directly from OBS.
 
-## Optional: starting OBS from Home Assistant
+## Optional: starting (and gracefully stopping) OBS from Home Assistant
 
-obs-websocket can only talk to OBS once it's already running, so starting OBS cold needs a different path: Home Assistant opens an SSH connection to the machine and triggers a Windows Scheduled Task that launches OBS. Running it as a Scheduled Task (rather than spawning the process directly over SSH) is deliberate — only a task configured to run in the logged-on user's session shows up on screen; a bare SSH-launched process runs invisibly in its own session.
+obs-websocket can only talk to OBS once it's already running, so starting OBS cold - and closing it down again - needs a different path: Home Assistant opens an SSH connection to the machine. Turning the "OBS" switch on triggers a Windows Scheduled Task that launches OBS (running it as a Scheduled Task, rather than spawning the process directly over SSH, is deliberate — only a task configured to run in the logged-on user's session shows up on screen; a bare SSH-launched process runs invisibly in its own session). Turning it off sends a plain, non-forced `taskkill` for OBS's process name, which asks OBS to close normally (its own exit handling runs - saving the current recording, asking for confirmation if a stream/recording is still active) rather than killing it outright.
 
 Leave the SSH fields in the integration's Configure dialog empty to keep this integration monitoring-only.
 
-**Full step-by-step setup (including the two gotchas that actually bite — firewall network profile, and Microsoft-account password sign-in) is in [docs/ssh-start-button-setup.md](docs/ssh-start-button-setup.md).**
+**Full step-by-step setup (including the two gotchas that actually bite — firewall network profile, and Microsoft-account password sign-in — and how the graceful-stop side works) is in [docs/ssh-start-button-setup.md](docs/ssh-start-button-setup.md).**
 
-## Optional: switching profile / scene collection from Home Assistant
+## Optional: starting/stopping stream and recording, switching profile / scene collection
 
-The two sensors "Aktuelles Profil" and "Aktuelle Szenensammlung" are always there. The matching dropdowns to actually switch them are a separate, off-by-default control feature — this is what to do to turn them on:
+The sensors "Livestream", "Aufnahme", "Aktuelles Profil" and "Aktuelle Szenensammlung" are always there. The matching switches/dropdowns to actually control them are a separate, off-by-default control feature — this is what to do to turn it on:
 
 1. **Settings -> Devices & Services -> OBS Stream Monitor -> Configure**
-2. Scroll to the bottom and check **"OBS-Steuerung aktivieren (Profil/Szenensammlung wechseln)"**
+2. Scroll to the bottom and check **"OBS-Steuerung aktivieren (Stream/Aufnahme, Profil/Szenensammlung)"**
 3. Submit — the entry reloads itself, no restart needed
-4. Two new select entities now show up under the device's "Steuerung" card: **"OBS Profil"** and **"OBS Szenensammlung"**, populated live from whatever profiles/scene collections currently exist in OBS
+4. Four new entities now show up under the device's "Steuerung" card: switches **"Stream"** and **"Aufnahme"**, and selects **"OBS Profil"** and **"OBS Szenensammlung"** (the latter two populated live from whatever profiles/scene collections currently exist in OBS)
 
-Picking a value in either one switches it in OBS immediately, the same as picking it from OBS's own menus. Both go "not available" whenever OBS itself does, since switching only makes sense while it's actually running.
+Toggling the switches or picking a value in either select acts in OBS immediately, the same as using OBS's own UI. All four go "not available" whenever OBS itself does, since none of this makes sense while it's unreachable.
 
-This is actual control, not monitoring, so it's off by default like the SSH start button — leave the checkbox unticked to keep the integration read-only.
+This is actual control, not monitoring, so it's off by default like the SSH-based "OBS" switch — leave the checkbox unticked to keep the integration read-only.
 
 ## Optional: scene/source/filter dashboard card
 

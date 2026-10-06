@@ -11,6 +11,7 @@ CONF_SSH_USERNAME = "ssh_username"
 CONF_SSH_PASSWORD = "ssh_password"
 CONF_SSH_PORT = "ssh_port"
 CONF_TASK_NAME = "task_name"
+CONF_OBS_PROCESS_NAME = "obs_process_name"
 
 CONF_ENABLE_CONTROL = "enable_control"
 CONF_ENABLE_SCENE_TREE = "enable_scene_tree"
@@ -19,6 +20,7 @@ DEFAULT_PORT = 4455
 DEFAULT_NAME = "OBS Stream Monitor"
 DEFAULT_SSH_PORT = 22
 DEFAULT_TASK_NAME = "StartOBS"
+DEFAULT_OBS_PROCESS_NAME = "obs64.exe"
 DEFAULT_ENABLE_CONTROL = False
 DEFAULT_ENABLE_SCENE_TREE = False
 

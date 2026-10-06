@@ -1,16 +1,28 @@
-"""Switch entities for scene-item visibility and filter enable state.
+"""Switch entities: stream/recording/OBS-power control, plus scene-item
+visibility and filter enable state.
 
-Entirely optional and off by default ("Szenen-Baum aktivieren" in the
-integration's Configure dialog). These entities are also what the bundled
-"OBS Szenen-Baum" dashboard card (custom_components/obs_stream_monitor/www/)
-reads and operates on - they're tagged with obs_role/scene/source/filter
-attributes specifically so that card can find them without depending on
-entity_id naming.
+Three kinds of switch live here, each independently optional:
 
-Entities are discovered dynamically from the coordinator's scene_tree data
-and added as they first appear, since OBS's own scenes/sources/filters can
-change at any time (added, removed, renamed) independently of Home
-Assistant.
+- ObsStreamSwitch / ObsRecordSwitch: start/stop the stream or recording.
+  Only appear once "OBS-Steuerung aktivieren" is on - same control tier as
+  the profile/scene-collection selects in select.py, and like those, a
+  CoordinatorEntity (goes "not available" whenever OBS itself does, since
+  switching only makes sense while it's reachable).
+- ObsPowerSwitch: launches OBS on the remote machine over SSH, or asks it
+  to close normally. Only appears once SSH credentials are configured (see
+  ssh_control.py). Deliberately NOT gated by coordinator availability like
+  the two above - "OBS isn't reachable" is exactly the situation turning
+  this switch on exists to fix.
+- ObsSceneItemSwitch / ObsFilterSwitch: per-scene source visibility and
+  per-source filter enable state. Entirely optional and off by default
+  ("Szenen-Baum aktivieren" in the integration's Configure dialog). These
+  are also what the bundled "OBS Szenen-Baum" dashboard card
+  (custom_components/obs_stream_monitor/www/) reads and operates on -
+  they're tagged with obs_role/scene/source/filter attributes specifically
+  so that card can find them without depending on entity_id naming.
+  Discovered dynamically from the coordinator's scene_tree data and added
+  as they first appear, since OBS's own scenes/sources/filters can change
+  at any time (added, removed, renamed) independently of Home Assistant.
 """
 from __future__ import annotations
 
@@ -27,8 +39,22 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_ENABLE_SCENE_TREE, CONNECT_TIMEOUT, DOMAIN
+from .const import (
+    CONF_ENABLE_CONTROL,
+    CONF_ENABLE_SCENE_TREE,
+    CONF_OBS_PROCESS_NAME,
+    CONF_SSH_PASSWORD,
+    CONF_SSH_PORT,
+    CONF_SSH_USERNAME,
+    CONF_TASK_NAME,
+    CONNECT_TIMEOUT,
+    DEFAULT_OBS_PROCESS_NAME,
+    DEFAULT_SSH_PORT,
+    DEFAULT_TASK_NAME,
+    DOMAIN,
+)
 from .coordinator import ObsStreamMonitorCoordinator
+from .ssh_control import start_obs, stop_obs
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,19 +98,49 @@ def _set_source_filter_enabled(
             pass
 
 
+def _call_client_method(host: str, port: int, password: str, method_name: str) -> None:
+    """Connect, call a no-argument obsws-python ReqClient method by name, disconnect.
+
+    Shared by the stream/recording switches below (start_stream/stop_stream/
+    start_record/stop_record all have this exact shape).
+    """
+    client = obsws.ReqClient(host=host, port=port, password=password, timeout=CONNECT_TIMEOUT)
+    try:
+        getattr(client, method_name)()
+    finally:
+        try:
+            client.disconnect()
+        except Exception:  # noqa: BLE001 - best effort cleanup
+            pass
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Add scene-item/filter switches, only if the scene tree is enabled.
+    """Add the control switches that don't depend on the scene tree, then
+    (only if "Szenen-Baum aktivieren" is on) the dynamic scene-item/filter
+    switches.
 
-    Off by default: nothing is added until "Szenen-Baum aktivieren" is
-    switched on via the integration's "Configure" options (the entry
-    reloads on options change, same as the other optional extras).
+    Off by default, independently of each other: the stream/recording
+    switches need "OBS-Steuerung aktivieren"; the OBS power switch needs
+    SSH credentials configured; the scene-item/filter switches need
+    "Szenen-Baum aktivieren". All are toggled via the integration's
+    "Configure" options (the entry reloads on options change).
     """
+    coordinator: ObsStreamMonitorCoordinator = hass.data[DOMAIN][entry.entry_id]
+
+    control_entities: list[SwitchEntity] = []
+    if entry.options.get(CONF_ENABLE_CONTROL, False):
+        control_entities.append(ObsStreamSwitch(coordinator, entry))
+        control_entities.append(ObsRecordSwitch(coordinator, entry))
+    if entry.options.get(CONF_SSH_USERNAME):
+        control_entities.append(ObsPowerSwitch(coordinator, entry))
+    if control_entities:
+        async_add_entities(control_entities)
+
     if not entry.options.get(CONF_ENABLE_SCENE_TREE, False):
         return
 
-    coordinator: ObsStreamMonitorCoordinator = hass.data[DOMAIN][entry.entry_id]
     known_items: dict[tuple[str, str], ObsSceneItemSwitch] = {}
     known_filters: dict[str, ObsFilterSwitch] = {}
 
@@ -115,6 +171,150 @@ async def async_setup_entry(
 
     entry.async_on_unload(coordinator.async_add_listener(_add_new_entities))
     _add_new_entities()
+
+
+class _ObsControlSwitch(CoordinatorEntity[ObsStreamMonitorCoordinator], SwitchEntity):
+    """Shared plumbing for the stream/recording on-off switches.
+
+    Like the profile/scene-collection selects in select.py (and unlike
+    ObsPowerSwitch below): a CoordinatorEntity, since starting/stopping the
+    stream or recording only makes sense while OBS is actually reachable,
+    so these should go "not available" exactly when the coordinator's
+    polling does.
+    """
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: ObsStreamMonitorCoordinator,
+        entry: ConfigEntry,
+        key: str,
+        data_key: str,
+        start_method: str,
+        stop_method: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._data_key = data_key
+        self._start_method = start_method
+        self._stop_method = stop_method
+        self._attr_unique_id = f"{entry.entry_id}_{key}"
+        self._attr_device_info = _device_info(entry)
+
+    @property
+    def is_on(self) -> bool | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.get(self._data_key)
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self._call(self._start_method)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self._call(self._stop_method)
+
+    async def _call(self, method_name: str) -> None:
+        entry = self._entry
+        try:
+            await self.hass.async_add_executor_job(
+                _call_client_method,
+                entry.data[CONF_HOST],
+                entry.data[CONF_PORT],
+                entry.data[CONF_PASSWORD],
+                method_name,
+            )
+        except Exception as err:
+            raise HomeAssistantError(f"Schalten fehlgeschlagen: {err}") from err
+        # Reflect the new stream_active/record_active right away instead of
+        # waiting up to SCAN_INTERVAL for the next poll.
+        await self.coordinator.async_request_refresh()
+
+
+class ObsStreamSwitch(_ObsControlSwitch):
+    """Starts/stops the live stream."""
+
+    _attr_translation_key = "obs_stream"
+    _attr_icon = "mdi:broadcast"
+
+    def __init__(self, coordinator: ObsStreamMonitorCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(
+            coordinator, entry, "obs_stream_switch", "stream_active", "start_stream", "stop_stream"
+        )
+
+
+class ObsRecordSwitch(_ObsControlSwitch):
+    """Starts/stops recording."""
+
+    _attr_translation_key = "obs_record"
+    _attr_icon = "mdi:record-rec"
+
+    def __init__(self, coordinator: ObsStreamMonitorCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(
+            coordinator, entry, "obs_record_switch", "record_active", "start_record", "stop_record"
+        )
+
+
+class ObsPowerSwitch(CoordinatorEntity[ObsStreamMonitorCoordinator], SwitchEntity):
+    """Launches OBS on the remote machine over SSH, or asks it to close normally.
+
+    Deliberately NOT gated by coordinator availability like the two control
+    switches above: unlike those, "OBS isn't reachable" is exactly the
+    situation turning this switch on exists to fix, so it has to stay
+    usable precisely when the coordinator's polling says it isn't - see
+    `available` below. `is_on` reflects the same signal as
+    binary_sensor.py's ObsRunningBinarySensor (the coordinator's last poll
+    result), so this switch's own state tracks reality instead of just
+    remembering which way it was last flipped.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "obs_power"
+    _attr_icon = "mdi:power"
+
+    def __init__(self, coordinator: ObsStreamMonitorCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_obs_power"
+        self._attr_device_info = _device_info(entry)
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self.coordinator.last_update_success)
+
+    async def async_turn_on(self, **kwargs) -> None:
+        entry = self._entry
+        host = entry.data[CONF_HOST]
+        ssh_port = entry.options.get(CONF_SSH_PORT, DEFAULT_SSH_PORT)
+        ssh_username = entry.options.get(CONF_SSH_USERNAME)
+        ssh_password = entry.options.get(CONF_SSH_PASSWORD)
+        task_name = entry.options.get(CONF_TASK_NAME, DEFAULT_TASK_NAME)
+        try:
+            await self.hass.async_add_executor_job(
+                start_obs, host, ssh_port, ssh_username, ssh_password, task_name
+            )
+        except Exception as err:
+            raise HomeAssistantError(f"OBS-Start über SSH fehlgeschlagen: {err}") from err
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_off(self, **kwargs) -> None:
+        entry = self._entry
+        host = entry.data[CONF_HOST]
+        ssh_port = entry.options.get(CONF_SSH_PORT, DEFAULT_SSH_PORT)
+        ssh_username = entry.options.get(CONF_SSH_USERNAME)
+        ssh_password = entry.options.get(CONF_SSH_PASSWORD)
+        process_name = entry.options.get(CONF_OBS_PROCESS_NAME, DEFAULT_OBS_PROCESS_NAME)
+        try:
+            await self.hass.async_add_executor_job(
+                stop_obs, host, ssh_port, ssh_username, ssh_password, process_name
+            )
+        except Exception as err:
+            raise HomeAssistantError(f"OBS-Beenden über SSH fehlgeschlagen: {err}") from err
+        await self.coordinator.async_request_refresh()
 
 
 class ObsSceneItemSwitch(CoordinatorEntity[ObsStreamMonitorCoordinator], SwitchEntity):

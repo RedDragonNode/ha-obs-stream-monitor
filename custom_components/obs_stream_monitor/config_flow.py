@@ -16,6 +16,7 @@ from homeassistant.data_entry_flow import FlowResult
 from .const import (
     CONF_ENABLE_CONTROL,
     CONF_ENABLE_SCENE_TREE,
+    CONF_OBS_PROCESS_NAME,
     CONF_SSH_PASSWORD,
     CONF_SSH_PORT,
     CONF_SSH_USERNAME,
@@ -24,6 +25,7 @@ from .const import (
     DEFAULT_ENABLE_CONTROL,
     DEFAULT_ENABLE_SCENE_TREE,
     DEFAULT_NAME,
+    DEFAULT_OBS_PROCESS_NAME,
     DEFAULT_PORT,
     DEFAULT_SSH_PORT,
     DEFAULT_TASK_NAME,
@@ -100,16 +102,17 @@ class ObsStreamMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ObsStreamMonitorOptionsFlow(config_entries.OptionsFlow):
-    """Optional extras: the 'OBS starten' button (SSH + Scheduled Task),
-    switchable profile/scene-collection selects, and the scene/source/
-    filter switch tree used by the bundled dashboard card.
+    """Optional extras: the 'OBS' power switch (SSH + Scheduled Task to
+    start, a plain SSH `taskkill` to close), switchable stream/recording/
+    profile/scene-collection controls, and the scene/source/filter switch
+    tree used by the bundled dashboard card.
 
     All fields are optional and independent of each other: leaving the SSH
-    username empty keeps the button off; leaving "OBS-Steuerung aktivieren"
-    off keeps the profile/scene-collection selects off; leaving
-    "Szenen-Baum aktivieren" off keeps the scene-item/filter switches (and
-    the dashboard card's data) off. Either way the base entry stays
-    monitoring-only.
+    username empty keeps the power switch off; leaving "OBS-Steuerung
+    aktivieren" off keeps the stream/recording switches and the profile/
+    scene-collection selects off; leaving "Szenen-Baum aktivieren" off
+    keeps the scene-item/filter switches (and the dashboard card's data)
+    off. Either way the base entry stays monitoring-only.
     """
 
     def __init__(self, config_entry: ConfigEntry) -> None:
@@ -133,6 +136,10 @@ class ObsStreamMonitorOptionsFlow(config_entries.OptionsFlow):
                 ): int,
                 vol.Optional(
                     CONF_TASK_NAME, default=current.get(CONF_TASK_NAME, DEFAULT_TASK_NAME)
+                ): str,
+                vol.Optional(
+                    CONF_OBS_PROCESS_NAME,
+                    default=current.get(CONF_OBS_PROCESS_NAME, DEFAULT_OBS_PROCESS_NAME),
                 ): str,
                 vol.Optional(
                     CONF_ENABLE_CONTROL,

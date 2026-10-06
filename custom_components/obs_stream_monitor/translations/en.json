@@ -24,13 +24,14 @@
     "step": {
       "init": {
         "title": "Advanced features (optional)",
-        "description": "Everything below stays blank/off for monitoring only. Fill in the SSH fields for the 'Start OBS' button (requires OpenSSH Server on Windows and a Scheduled Task, see docs). 'Enable OBS control' additionally unlocks dropdowns to switch profile and scene collection. 'Enable scene tree' adds switches for source visibility and filters per scene/source, usable via the bundled dashboard card (see docs) - all of it only usable while OBS is running.",
+        "description": "Everything below stays blank/off for monitoring only. Fill in the SSH fields for the 'OBS' switch (starts/stops OBS on the machine, requires OpenSSH Server on Windows and a Scheduled Task, see docs). 'Enable OBS control' additionally unlocks switches for stream/recording start/stop plus dropdowns to switch profile and scene collection. 'Enable scene tree' adds switches for source visibility and filters per scene/source, usable via the bundled dashboard card (see docs) - all of it only usable while OBS is running (exception: the 'OBS' switch itself and the 'OBS running' sensor).",
         "data": {
           "ssh_username": "SSH username",
           "ssh_password": "SSH password",
           "ssh_port": "SSH port",
           "task_name": "Scheduled task name",
-          "enable_control": "Enable OBS control (switch profile/scene collection)",
+          "obs_process_name": "OBS process name (for graceful shutdown)",
+          "enable_control": "Enable OBS control (stream/recording, profile/scene collection)",
           "enable_scene_tree": "Enable scene tree (sources/filters as switches)"
         }
       }
@@ -51,14 +52,17 @@
     },
     "binary_sensor": {
       "stream_active": { "name": "Live stream" },
-      "record_active": { "name": "Recording" }
-    },
-    "button": {
-      "start_obs": { "name": "Start OBS" }
+      "record_active": { "name": "Recording" },
+      "obs_running": { "name": "OBS running" }
     },
     "select": {
       "obs_profile": { "name": "OBS profile" },
       "obs_scene_collection": { "name": "OBS scene collection" }
+    },
+    "switch": {
+      "obs_stream": { "name": "Stream" },
+      "obs_record": { "name": "Recording" },
+      "obs_power": { "name": "OBS" }
     }
   },
   "services": {

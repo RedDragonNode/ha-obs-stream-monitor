@@ -1,9 +1,9 @@
-# "OBS starten"-Button einrichten (SSH)
+# "OBS"-Schalter einrichten (SSH)
 
-Optionale Funktion von OBS Stream Monitor: ein Button in Home Assistant, der OBS auf dem
-Windows-Rechner startet, auch wenn es gerade nicht läuft. Da obs-websocket nur mit einem
-bereits laufenden OBS sprechen kann, läuft das über eine SSH-Verbindung zu Windows, die
-dort eine Scheduled Task auslöst.
+Optionale Funktion von OBS Stream Monitor: ein Schalter in Home Assistant, der OBS auf dem
+Windows-Rechner startet, auch wenn es gerade nicht läuft - und beim Ausschalten OBS wieder
+**sanft beendet** (nicht hart abgewürgt). Da obs-websocket nur mit einem bereits laufenden
+OBS sprechen kann, läuft beides über eine SSH-Verbindung zu Windows.
 
 Alles unten ist **einmalig** auf dem Rechner einzurichten, auf dem OBS läuft.
 
@@ -28,7 +28,7 @@ Die letzte Zeile muss `Status: Running` zeigen.
 **Das ist der Schritt, der am leichtesten übersehen wird.** Die OpenSSH-Installation legt
 zwar automatisch eine Firewall-Regel an, die aber nur fürs **Private**-Netzwerkprofil gilt.
 Läuft die Verbindung im "Öffentlichen Netzwerk"-Profil, werden eingehende SSH-Verbindungen
-stillschweigend verworfen (Symptom: Button-Fehler "timed out", obwohl SSH korrekt läuft).
+stillschweigend verworfen (Symptom: Schalter-Fehler "timed out", obwohl SSH korrekt läuft).
 
 **Einstellungen → Netzwerk und Internet → Ethernet** (bzw. WLAN) → **Netzwerkprofiltyp**
 von "Öffentliches Netzwerk" auf **"Privates Netzwerk"** umstellen.
@@ -46,6 +46,9 @@ New-NetFirewallRule -DisplayName "OpenSSH SSH Server (sshd)" -Direction Inbound 
 ```
 
 ## 3. Scheduled Task anlegen (einmal pro OBS-Installation)
+
+Nur fürs **Starten** nötig - das Beenden (Schalter aus) braucht keine eigene Task, siehe
+Schritt 5.
 
 **Aufgabenplanung** öffnen (Win-Taste → "Aufgabenplanung", oder `taskschd.msc`) →
 **Aufgabenplanungsbibliothek** → rechts **"Aufgabe erstellen..."** (nicht "Einfache Aufgabe
@@ -90,7 +93,35 @@ nicht die PIN.
 
 Integration **OBS Stream Monitor** → **Konfigurieren** → SSH-Benutzername, SSH-Passwort,
 SSH-Port (Standard `22`), Name der Scheduled Task (aus Schritt 3) eintragen. Der
-"OBS starten"-Button erscheint danach automatisch, kein Neustart nötig.
+**"OBS"-Schalter** erscheint danach automatisch, kein Neustart nötig.
+
+Ein neues Feld dabei: **"Prozessname von OBS (für sanftes Beenden)"**, Standard `obs64.exe`.
+Das ist der Name, mit dem OBS im Windows-Task-Manager auftaucht (Reiter "Details", Spalte
+"Name") - bei einer normalen 64-Bit-Installation stimmt der Standardwert praktisch immer,
+bei einer 32-Bit-Installation oder einem umbenannten Build hier den tatsächlichen Namen
+eintragen.
+
+### Wie der Schalter funktioniert
+
+- **Einschalten:** löst dieselbe Scheduled Task aus wie bisher der "OBS starten"-Button
+  (Schritt 3).
+- **Ausschalten:** schickt per SSH ein `taskkill` **ohne** `/F` für den eingetragenen
+  Prozessnamen - das bittet OBS, sich normal zu beenden (wie ein Klick auf das eigene
+  Schließen-Symbol), **kein** hartes Abwürgen. OBS läuft also seine normale
+  Beenden-Routine durch (laufende Aufnahme sauber abschließen, bei aktivem
+  Stream/Aufnahme ggf. mit Bestätigungsnachfrage).
+
+  **Läuft gerade ein Stream oder eine Aufnahme**, zeigt OBS dafür einen
+  Bestätigungsdialog **auf dem echten Bildschirm** des Windows-Rechners (dieselbe
+  interaktive Sitzung, in der auch die Scheduled Task läuft) - der muss dann von Hand
+  weggeklickt werden, ferngesteuert geht das nicht. Um das zu vermeiden: vor dem
+  Ausschalten erst Stream/Aufnahme über die neuen "Stream"/"Aufnahme"-Schalter stoppen
+  (siehe Haupt-README, Abschnitt "OBS-Steuerung").
+
+Der Schalter-Zustand selbst (an/aus) zeigt, ob OBS laut letzter Abfrage erreichbar ist -
+genau wie der neue Sensor "OBS läuft". Er bleibt dabei bewusst **immer bedienbar**, auch
+wenn OBS gerade nicht läuft (anders als z. B. die Stream-/Aufnahme-Schalter) - sonst könnte
+man OBS ja nie aus dem Aus-Zustand heraus wieder starten.
 
 ## Verbindung manuell testen
 
@@ -102,17 +133,19 @@ ssh BENUTZERNAME@IP-DES-RECHNERS
 ```
 
 - Scheitert das genauso → Problem liegt auf Windows-Seite (Schritt 1-4 prüfen)
-- Klappt das, aber der HA-Button meldet trotzdem einen Fehler → Tippfehler in den
+- Klappt das, aber der HA-Schalter meldet trotzdem einen Fehler → Tippfehler in den
   HA-Optionsfeldern (Leerzeichen, Sonderzeichen)
 
 ## Fehlermeldungen und was sie bedeuten
 
-| Meldung im HA-Button-Fehler | Ursache | Lösung |
+| Meldung im HA-Fehler | Ursache | Lösung |
 |---|---|---|
 | `timed out` | SSH-Pakete kommen nicht an (meist Firewall/Netzwerkprofil) | Schritt 2 |
 | `Authentication failed` | Benutzername/Passwort falsch, bei Microsoft-Konto nur Kurzname statt voller E-Mail-Adresse verwendet, oder Passwort-Login für das Konto blockiert | Schritt 4 |
-| Button lässt sich gar nicht drücken / fehlt | Integration vor v0.2.1: komplette Einrichtung scheiterte, wenn OBS beim Laden nicht erreichbar war | Auf v0.2.1 oder neuer aktualisieren |
-| `schtasks meldete Exit-Code ...` | Task-Name in HA stimmt nicht exakt mit dem Namen in der Aufgabenplanung überein | Schritt 3 - Name 1:1 abgleichen |
+| Schalter lässt sich gar nicht bedienen / fehlt | Integration vor v0.2.1: komplette Einrichtung scheiterte, wenn OBS beim Laden nicht erreichbar war | Auf v0.2.1 oder neuer aktualisieren |
+| `schtasks meldete Exit-Code ...` (beim Einschalten) | Task-Name in HA stimmt nicht exakt mit dem Namen in der Aufgabenplanung überein | Schritt 3 - Name 1:1 abgleichen |
+| `Befehl meldete Exit-Code ...` (beim Ausschalten) | Prozessname in HA stimmt nicht mit dem im Task-Manager überein, oder OBS lief zu diesem Zeitpunkt bereits gar nicht mehr | Prozessname in den Optionen prüfen (siehe Schritt 5) |
+| Schalter zeigt nach "Ausschalten" sofort wieder "an" | OBS läuft noch (Beenden-Dialog wartet auf Bestätigung auf dem Bildschirm, siehe oben), oder braucht noch ein paar Sekunden zum Schließen | Am Bildschirm nachsehen; nächste Abfrage (max. 10s) aktualisiert den Zustand |
 
 ## Mehrere OBS-Installationen (nacheinander genutzt)
 
