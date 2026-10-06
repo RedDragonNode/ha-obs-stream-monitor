@@ -144,6 +144,49 @@ Wichtig dabei:
   v0.5.7) - vorher gingen noch nicht gespeicherte Eingaben durch die ständigen Live-Updates
   verloren. Nach "Speichern" oder "Abbrechen" aktualisiert sich die Karte sofort wieder normal.
 
+## Einstellungen per Automatisierung setzen
+
+Seit v0.5.8 gibt es dieselbe Funktion wie den Zahnrad-Dialog auch als ganz normalen Home
+Assistant-Service, nutzbar aus Automatisierungen und Skripten - z. B. um bei Stream-/
+Aufnahmestart automatisch einen Text, eine Mediendatei oder Chroma-Key-Werte zu setzen, ohne
+den Dialog von Hand zu öffnen (praktisch kombiniert mit dem bereits bestehenden "OBS
+starten"-Button für volle Fernsteuerung bei IRL-Streams/Aufnahmen).
+
+**Service:** `obs_stream_monitor.set_settings`
+
+**Ziel (Target):** eine der vorhandenen Schalter-Entitäten der "Szenen-Baum"-Funktion -
+`switch.obs_sceneitem_*` für eine Quelle, `switch.obs_filter_*` für einen Filter. Genau die
+Entitäts-ID, die man über das Kopier-Symbol an jeder Quelle/jedem Filter bekommt (siehe
+"Bedienung" oben) - welcher OBS-Eintrag, welche Quelle und ggf. welcher Filter gemeint sind,
+ermittelt der Service automatisch aus dieser Entität, nichts muss man selbst eintippen.
+
+**Datenfeld `settings`:** ein Objekt mit den zu ändernden Feldern, in denselben rohen,
+technischen Feldnamen wie im Zahnrad-Dialog (klein neben der jeweiligen Beschriftung zu
+sehen). Es werden nur die angegebenen Felder geändert (Overlay/Merge) - alle anderen
+Einstellungen der Quelle/des Filters bleiben unangetastet, man muss also nicht das komplette
+Einstellungs-Objekt mitschicken.
+
+Beispiel-Automatisierung (setzt bei Stream-Start einen Text und eine Chroma-Key-Farbe):
+
+```yaml
+automation:
+  - alias: "OBS: Text bei Stream-Start setzen"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.obs_livestream
+        to: "on"
+    action:
+      - service: obs_stream_monitor.set_settings
+        target:
+          entity_id: switch.obs_sceneitem_spiele_saison_textoverlay
+        data:
+          settings:
+            text: "Jetzt live!"
+```
+
+Auch über **Entwicklerwerkzeuge → Aktionen** direkt testbar (Ziel-Entität auswählen,
+`settings` als Objekt eingeben).
+
 ## Bekannte Einschränkungen
 
 - **Gruppen** (verschachtelte Szenen innerhalb einer Szene) werden in der ersten Version

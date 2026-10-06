@@ -60,5 +60,17 @@
       "obs_profile": { "name": "OBS Profil" },
       "obs_scene_collection": { "name": "OBS Szenensammlung" }
     }
+  },
+  "services": {
+    "set_settings": {
+      "name": "OBS-Einstellungen setzen",
+      "description": "Setzt rohe OBS-Quellen- oder Filter-Einstellungen direkt aus einer Automatisierung oder einem Skript - dieselbe Funktion wie der Zahnrad-Dialog der 'OBS Szenen-Baum'-Karte, nur als Service statt per Hand. Nur die angegebenen Felder werden geändert, alle anderen bleiben wie sie sind.",
+      "fields": {
+        "settings": {
+          "name": "Einstellungen",
+          "description": "Die zu setzenden Felder als Objekt, z. B. {\"text\": \"Jetzt live!\"} für eine Textquelle. Die rohen Feldnamen stehen im Zahnrad-Dialog der Karte."
+        }
+      }
+    }
   }
 }

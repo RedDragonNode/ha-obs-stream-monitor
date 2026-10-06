@@ -60,5 +60,17 @@
       "obs_profile": { "name": "OBS profile" },
       "obs_scene_collection": { "name": "OBS scene collection" }
     }
+  },
+  "services": {
+    "set_settings": {
+      "name": "Set OBS settings",
+      "description": "Pushes raw OBS source or filter settings straight from an automation or script - the same thing the gear-icon dialog on the 'OBS Scene Tree' card does, just as a service instead of by hand. Only the fields you give are changed; everything else is left as-is.",
+      "fields": {
+        "settings": {
+          "name": "Settings",
+          "description": "The fields to set, as an object, e.g. {\"text\": \"Live now!\"} for a text source. Raw field names are shown in the card's gear-icon dialog."
+        }
+      }
+    }
   }
 }
