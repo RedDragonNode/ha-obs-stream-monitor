@@ -30,9 +30,17 @@ PLATFORMS: list[Platform] = [
 CARD_URL_PATH = "/obs_stream_monitor_card/obs-scene-tree-card.js"
 CARD_FILE = Path(__file__).parent / "www" / "obs-scene-tree-card.js"
 
+# Served alongside the card itself: the settings-editor dialog's field/kind
+# label lookup table (see obs-settings-labels.js's own doc-comment). The
+# card statically imports it by a plain relative URL
+# ("./obs-settings-labels.js"), so it just needs to be reachable under the
+# same URL prefix as the card - no separate Lovelace resource entry needed.
+LABELS_URL_PATH = "/obs_stream_monitor_card/obs-settings-labels.js"
+LABELS_FILE = Path(__file__).parent / "www" / "obs-settings-labels.js"
+
 
 async def _async_register_frontend_card(hass: HomeAssistant) -> None:
-    """Serve the dashboard card's JS file. Safe to call once per HA run."""
+    """Serve the dashboard card's JS files. Safe to call once per HA run."""
     domain_data = hass.data.setdefault(DOMAIN, {})
     if domain_data.get("_frontend_registered"):
         return
@@ -42,12 +50,18 @@ async def _async_register_frontend_card(hass: HomeAssistant) -> None:
         from homeassistant.components.http import StaticPathConfig
 
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(CARD_URL_PATH, str(CARD_FILE), cache_headers=False)]
+            [
+                StaticPathConfig(CARD_URL_PATH, str(CARD_FILE), cache_headers=False),
+                StaticPathConfig(LABELS_URL_PATH, str(LABELS_FILE), cache_headers=False),
+            ]
         )
     except ImportError:
         # Home Assistant Core older than 2024.7, before StaticPathConfig existed.
         await hass.async_add_executor_job(
             hass.http.register_static_path, CARD_URL_PATH, str(CARD_FILE), False
+        )
+        await hass.async_add_executor_job(
+            hass.http.register_static_path, LABELS_URL_PATH, str(LABELS_FILE), False
         )
     except Exception:  # noqa: BLE001 - never block entity setup over the card
         _LOGGER.warning(

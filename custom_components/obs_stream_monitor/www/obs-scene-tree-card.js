@@ -17,6 +17,14 @@
  * integration registers (see websocket_api.py) directly, fetching/pushing
  * settings on demand rather than through the usual 10s poll.
  *
+ * The settings dialog's generic form shows OBS's own raw, technical field
+ * names (e.g. "key_color") by default. Where the source/filter "kind" is
+ * recognized, obs-settings-labels.js supplies a nicer label per field
+ * (English/German, matched to the language Home Assistant is set to, via
+ * hass.locale.language / hass.language) - see _fieldLabel()/_kindLabel()
+ * below. An unrecognized kind or field just falls back to the raw name;
+ * nothing stops working, it's purely cosmetic.
+ *
  * One-time setup (can't be done by the integration automatically, Home
  * Assistant doesn't allow that): Settings -> Dashboards -> Resources ->
  * Add Resource -> URL "/obs_stream_monitor_card/obs-scene-tree-card.js",
@@ -33,8 +41,13 @@
  *             one card per scene instead of one shared drill-down card
  *
  * No build step / framework dependency on purpose - this is a plain
- * custom element so it can be served as-is.
+ * custom element so it can be served as-is. The one exception is the
+ * static import below: obs-settings-labels.js is served from the same
+ * directory (see __init__.py), so it resolves as a plain relative URL,
+ * no bundler needed.
  */
+import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
+
 (() => {
   if (customElements.get("obs-scene-tree-card")) {
     return;
@@ -385,9 +398,13 @@
           .otc-field { margin-bottom: 14px; }
           .otc-field label {
             display: block;
-            font-size: 12px;
-            color: var(--secondary-text-color);
+            font-size: 13px;
+            color: var(--primary-text-color);
             margin-bottom: 4px;
+          }
+          .otc-field-key {
+            font-size: 11px;
+            color: var(--secondary-text-color);
             font-family: var(--code-font-family, ui-monospace, "SFMono-Regular", Consolas, monospace);
           }
           .otc-field input[type="text"],
@@ -588,7 +605,44 @@
       return "json"; // object, array, null - edited as raw JSON
     }
 
-    _renderSettingsFields(settings) {
+    // Two-letter language code HA is currently set to ("de", "en", ...),
+    // derived from hass.locale.language (modern frontends) or hass.language
+    // (older ones), defaulting to English.
+    _settingsLang() {
+      const hass = this._hass;
+      const raw = (hass && hass.locale && hass.locale.language) || (hass && hass.language) || "en";
+      return String(raw).split("-")[0].toLowerCase();
+    }
+
+    // Nicer display name for a recognized source/filter "kind", or null if
+    // this kind isn't in the lookup table (see obs-settings-labels.js).
+    _kindLabel(kind) {
+      const entry = kind && OBS_SETTINGS_LABELS[kind];
+      if (!entry || !entry.label) return null;
+      const lang = this._settingsLang();
+      return entry.label[lang] || entry.label.en || null;
+    }
+
+    // Nicer label for one settings field of a recognized kind, or null if
+    // unknown (the caller falls back to the raw field key in that case).
+    // A few plugins (e.g. Gradient Source) number otherwise-identical
+    // fields ("midpoint_1".."midpoint_9") - if the exact key isn't found,
+    // retry with any trailing "_<digits>" stripped.
+    _fieldLabel(kind, fieldKey) {
+      const entry = kind && OBS_SETTINGS_LABELS[kind];
+      const fields = entry && entry.fields;
+      if (!fields) return null;
+      let fieldEntry = fields[fieldKey];
+      if (!fieldEntry) {
+        const stripped = fieldKey.replace(/_\d+$/, "");
+        if (stripped !== fieldKey) fieldEntry = fields[stripped];
+      }
+      if (!fieldEntry) return null;
+      const lang = this._settingsLang();
+      return fieldEntry[lang] || fieldEntry.en || null;
+    }
+
+    _renderSettingsFields(settings, kind) {
       const entries = Object.entries(settings || {});
       if (!entries.length) {
         return `<p class="otc-modal-note">Diese Quelle/dieser Filter meldet keine bearbeitbaren Felder.</p>`;
@@ -596,10 +650,14 @@
       return entries
         .map(([key, value]) => {
           const type = this._settingsFieldType(value);
+          const niceLabel = this._fieldLabel(kind, key);
+          const labelHtml = niceLabel
+            ? `${esc(niceLabel)} <span class="otc-field-key">(${esc(key)})</span>`
+            : esc(key);
           if (type === "boolean") {
             return `
               <div class="otc-field">
-                <label>${esc(key)}</label>
+                <label>${labelHtml}</label>
                 <input type="checkbox" data-field="${esc(key)}" data-type="boolean" ${value ? "checked" : ""}>
               </div>
             `;
@@ -607,7 +665,7 @@
           if (type === "number") {
             return `
               <div class="otc-field">
-                <label>${esc(key)}</label>
+                <label>${labelHtml}</label>
                 <input type="number" step="any" data-field="${esc(key)}" data-type="number" value="${esc(value)}">
               </div>
             `;
@@ -615,7 +673,7 @@
           if (type === "string") {
             return `
               <div class="otc-field">
-                <label>${esc(key)}</label>
+                <label>${labelHtml}</label>
                 <input type="text" data-field="${esc(key)}" data-type="string" value="${esc(value)}">
               </div>
             `;
@@ -623,7 +681,7 @@
           // nested object / array / null - shown as raw, editable JSON
           return `
             <div class="otc-field">
-              <label>${esc(key)} (JSON)</label>
+              <label>${labelHtml} (JSON)</label>
               <textarea data-field="${esc(key)}" data-type="json" rows="3">${esc(JSON.stringify(value, null, 2))}</textarea>
             </div>
           `;
@@ -769,10 +827,12 @@
       } else if (m.error && !m.settings) {
         body = `<div class="otc-modal-error">${esc(m.error)}</div>`;
       } else {
+        const kindLabel = this._kindLabel(m.kind);
+        const kindNote = m.kind ? (kindLabel ? `${kindLabel} (${m.kind})` : m.kind) : null;
         body = `
           ${m.error ? `<div class="otc-modal-error">${esc(m.error)}</div>` : ""}
-          ${m.kind ? `<p class="otc-modal-note">Typ: ${esc(m.kind)}</p>` : ""}
-          ${this._renderSettingsFields(m.settings)}
+          ${kindNote ? `<p class="otc-modal-note">Typ: ${esc(kindNote)}</p>` : ""}
+          ${this._renderSettingsFields(m.settings, m.kind)}
         `;
       }
 

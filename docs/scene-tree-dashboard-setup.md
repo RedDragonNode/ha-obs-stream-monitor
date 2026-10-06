@@ -25,7 +25,7 @@ Lovelace-Ressource selbst eintragen. Einmalig von Hand:
 
 1. **Einstellungen → Dashboards** → oben rechts die drei Punkte → **Ressourcen**
 2. **Ressource hinzufügen**
-3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.5`
+3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.6`
 4. **Ressourcentyp:** JavaScript-Modul
 5. Speichern
 
@@ -35,7 +35,7 @@ Modus" (Experten-Modus) einschalten, dann erscheint der Menüpunkt.
 **Wichtig bei künftigen Updates:** Home Assistant/der Browser cached diese JS-Datei hartnäckig
 unter ihrer URL — ein reines Integrations-Update + Neustart reicht oft nicht, die neue
 Version wird angezeigt. Nach jedem Update, das die Karte selbst betrifft, die Ressourcen-URL
-in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.6`) und danach im Browser
+in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.7`) und danach im Browser
 hart neu laden (Strg+Shift+R). Die jeweils aktuelle Versionsnummer steht in den
 Release-Notes.
 
@@ -122,10 +122,17 @@ zurückgibt, jeweils passend als Text-, Zahlen- oder Häkchen-Feld; verschachtel
 (Objekte, Listen) erscheinen als JSON-Text zum Bearbeiten. "Speichern" schreibt die
 geänderten Werte direkt zurück nach OBS (`SetInputSettings`/`SetSourceFilterSettings`).
 
+Für eine wachsende Liste an eingebauten OBS-Quellen/-Filtern und gängigen Community-Plugins
+(siehe Release-Notes v0.5.6) zeigt das Formular statt des rohen Feldnamens eine "schöne"
+Beschriftung - automatisch auf Deutsch oder Englisch, je nachdem, was in Home Assistant unter
+**Einstellungen → Allgemein → Sprache** eingestellt ist. Der rohe Name steht weiterhin klein
+daneben. Ist eine Quelle/ein Filter (noch) nicht in dieser Tabelle, zeigt das Formular wie
+gehabt nur den rohen Namen - nichts bricht dadurch, es ist rein kosmetisch.
+
 Wichtig dabei:
 
-- Die Feldnamen sind die **rohen, technischen** Namen, wie obs-websocket sie liefert - keine
-  deutschen oder beschönigten Bezeichnungen, wie man sie aus dem OBS-Fenster selbst kennt.
+- Bei unbekannten Quellen/Filtern (oder Feldern ohne Übersetzung) sind die Feldnamen die
+  **rohen, technischen** Namen, wie obs-websocket sie liefert.
 - Ungültiges JSON in einem JSON-Feld wird vor dem Speichern erkannt und mit einer Fehlermeldung
   abgelehnt, ohne die bisherigen Eingaben zu verwerfen. Alles andere wird unverändert an OBS
   weitergegeben - OBS kann einen Wert selbst ablehnen oder sich damit unerwartet verhalten.
