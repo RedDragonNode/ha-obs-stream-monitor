@@ -25,7 +25,7 @@ Lovelace-Ressource selbst eintragen. Einmalig von Hand:
 
 1. **Einstellungen → Dashboards** → oben rechts die drei Punkte → **Ressourcen**
 2. **Ressource hinzufügen**
-3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.3`
+3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.4`
 4. **Ressourcentyp:** JavaScript-Modul
 5. Speichern
 
@@ -35,7 +35,7 @@ Modus" (Experten-Modus) einschalten, dann erscheint der Menüpunkt.
 **Wichtig bei künftigen Updates:** Home Assistant/der Browser cached diese JS-Datei hartnäckig
 unter ihrer URL — ein reines Integrations-Update + Neustart reicht oft nicht, die neue
 Version wird angezeigt. Nach jedem Update, das die Karte selbst betrifft, die Ressourcen-URL
-in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.4`) und danach im Browser
+in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.5`) und danach im Browser
 hart neu laden (Strg+Shift+R). Die jeweils aktuelle Versionsnummer steht in den
 Release-Notes.
 
@@ -100,11 +100,11 @@ anordnen.
   Quelle, mit Schalter für aktiv/inaktiv.
 - Über die Brotkrumen-Navigation oben (Szenen › Szenenname › Quellenname) geht's wieder
   zurück.
-- Unter jeder Quelle und jedem Filter steht klein die zugehörige Entitäts-ID
-  (z. B. `switch.obs_sceneitem_...`). Draufklicken kopiert sie in die Zwischenablage -
-  praktisch, um sie in Automatisierungen, Skripten oder anderen Dashboards zu
-  verwenden, ohne sie vorher unter Einstellungen → Entitäten suchen zu müssen. Der Klick
-  darauf navigiert nicht in die nächste Ebene, er kopiert nur.
+- Unter jeder Quelle und jedem Filter steht klein "Entitäts-ID" mit Kopier-Symbol. Mit der
+  Maus draufhalten zeigt die volle `switch...`-ID als Tooltip, draufklicken kopiert sie
+  vollständig in die Zwischenablage - praktisch, um sie in Automatisierungen, Skripten oder
+  anderen Dashboards zu verwenden, ohne sie vorher unter Einstellungen → Entitäten suchen zu
+  müssen. Der Klick darauf navigiert nicht in die nächste Ebene, er kopiert nur.
 
 ## Bekannte Einschränkungen
 

@@ -280,27 +280,19 @@
           .otc-toggle input:checked + .otc-slider::before { transform: translateX(16px); }
           .otc-toggle input:disabled + .otc-slider { opacity: 0.4; cursor: default; }
           .otc-entity-id {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 4px;
             font-size: 11px;
-            font-family: var(--code-font-family, ui-monospace, "SFMono-Regular", Consolas, monospace);
             color: var(--secondary-text-color);
             margin-top: 2px;
             cursor: pointer;
-            min-width: 0;
-            max-width: 100%;
+            width: fit-content;
           }
           .otc-entity-id:hover { color: var(--primary-color); }
           .otc-entity-id ha-icon {
             --mdc-icon-size: 14px;
             flex: 0 0 auto;
-          }
-          .otc-entity-id-text {
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
           }
         </style>
       `;
@@ -310,7 +302,7 @@
       return `
         <span class="otc-entity-id" data-copy-entity="${esc(entity.entity_id)}" title="${esc(entity.entity_id)} (Klicken zum Kopieren)">
           <ha-icon icon="mdi:content-copy"></ha-icon>
-          <span class="otc-entity-id-text">${esc(entity.entity_id)}</span>
+          Entitäts-ID
         </span>
       `;
     }
