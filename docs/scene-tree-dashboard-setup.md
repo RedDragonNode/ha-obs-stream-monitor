@@ -29,7 +29,7 @@ Szenen-Baum" und "OBS Einstellung" - beide stecken in derselben Datei):
 
 1. **Einstellungen → Dashboards** → oben rechts die drei Punkte → **Ressourcen**
 2. **Ressource hinzufügen**
-3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.7.3`
+3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.7.4`
 4. **Ressourcentyp:** JavaScript-Modul
 5. Speichern
 
@@ -39,7 +39,7 @@ Modus" (Experten-Modus) einschalten, dann erscheint der Menüpunkt.
 **Wichtig bei künftigen Updates:** Home Assistant/der Browser cached diese JS-Datei hartnäckig
 unter ihrer URL — ein reines Integrations-Update + Neustart reicht oft nicht, die neue
 Version wird angezeigt. Nach jedem Update, das eine der beiden Karten betrifft, die
-Ressourcen-URL in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.7.3`) und
+Ressourcen-URL in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.7.4`) und
 danach im Browser hart neu laden (Strg+Shift+R). Die jeweils aktuelle Versionsnummer steht in
 den Release-Notes.
 
@@ -184,6 +184,20 @@ Filter-Feld zusätzlich "Filter") ausgefüllt ist und der Typ der Quelle/des Fil
 wird, schlägt das Formular die bekannten rohen Feldnamen dieses Typs vor, mit derselben
 schönen Bezeichnung wie im Zahnrad-Dialog (z. B. "Image File (file)"). Bei einem nicht
 erkannten Typ bleibt das Feld wie gehabt ein einfaches Textfeld.
+
+Ebenfalls seit v0.7.3 behoben: Das Formular hat zuvor alle ~10 Sekunden die gerade
+eingegebene, noch nicht bestätigte Eingabe verworfen (derselbe Bug wie zuvor im
+Zahnrad-Dialog, siehe "Einstellungen bearbeiten" oben) - jetzt baut sich das Formular nur
+noch beim ersten Öffnen bzw. bei einer echten Konfigurationsänderung neu auf.
+
+Seit v0.7.4 behoben: Ein übernommener Namensvorschlag für "Quelle" oder "Filter" wurde
+automatisch getrimmt (Leerzeichen am Anfang/Ende entfernt). Hat eine Quelle in OBS selbst
+ein Leerzeichen am Ende ihres Namens (kommt gelegentlich beim Benennen vor), wurde dadurch
+genau dieses Leerzeichen abgeschnitten - mit der Folge, dass für diese Quelle keine
+Filter-Vorschläge mehr erschienen (der gespeicherte Name stimmte nicht mehr exakt mit dem
+echten OBS-Namen überein) und die Karte selbst beim Speichern mit "No source/filter was
+found" fehlgeschlagen wäre. Werte werden jetzt unverändert übernommen, exakt wie OBS sie
+meldet - nur ein komplett leeres Feld gilt weiterhin als "leer".
 
 Für die Einstellung eines **Filters** zusätzlich `filter` angeben:
 

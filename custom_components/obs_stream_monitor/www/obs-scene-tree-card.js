@@ -1531,14 +1531,27 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
     }
 
     // Applies one field's edited value to the config (deleting the key
-    // entirely for an empty optional field, rather than storing ""), then
-    // tells Home Assistant about the change. Exposed as its own method so
-    // it can be exercised directly in tests without going through a real
-    // DOM change event.
+    // entirely for an empty/whitespace-only optional field, rather than
+    // storing "" or " "), then tells Home Assistant about the change.
+    // Exposed as its own method so it can be exercised directly in tests
+    // without going through a real DOM change event.
+    //
+    // Deliberately does NOT trim a non-blank value: an OBS source/filter
+    // name can genuinely start or end with a space (e.g. a source named
+    // "Fuchsblick => Hauptstream " with a trailing space) - that's exactly
+    // what the datalist suggestions (_sourceSuggestions/_filterSuggestions)
+    // offer verbatim from the real name OBS reports, so silently stripping
+    // it here would save a config that no longer matches: the filter
+    // dropdown would come up empty next time (it compares this._config.source
+    // against the switch entities' own "source" attribute, which still has
+    // the space), and the card itself would fail against OBS with "No
+    // source/filter was found" even though the name was picked straight
+    // from the suggestion list. Only whitespace-ONLY input (an accidentally
+    // space-padded empty field) is treated as "clear this field".
     _updateKey(key, rawValue) {
-      const value = rawValue.trim();
+      const value = rawValue;
       const next = { ...this._config };
-      if (value === "") {
+      if (value.trim() === "") {
         delete next[key];
       } else {
         next[key] = value;
