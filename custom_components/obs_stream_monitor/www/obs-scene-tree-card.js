@@ -65,6 +65,70 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
     return String(value ?? "").replace(/[&<>"']/g, (c) => ESCAPE_MAP[c]);
   }
 
+  // --- settings label/type helpers, shared by both custom elements below
+  // (ObsSceneTreeCard's own settings dialog, and the single-field
+  // ObsSettingCard) -------------------------------------------------------
+
+  // Two-letter language code HA is currently set to ("de", "en", ...),
+  // derived from hass.locale.language (modern frontends) or hass.language
+  // (older ones), defaulting to English.
+  function settingsLang(hass) {
+    const raw = (hass && hass.locale && hass.locale.language) || (hass && hass.language) || "en";
+    return String(raw).split("-")[0].toLowerCase();
+  }
+
+  // Looks up a "kind" in OBS_SETTINGS_LABELS, or null if unknown. Some
+  // built-in OBS sources exist in versioned variants on the wire - e.g.
+  // newer OBS builds report "text_gdiplus_v3" / "color_source_v3" instead
+  // of the plain "text_gdiplus" / "color_source" id (OBS keeps the old,
+  // unsuffixed id registered too, for loading old scene collections, but
+  // newly created sources get the versioned one). The settings fields are
+  // the same set either way, just with revised internal defaults - so if
+  // the exact (possibly versioned) kind isn't in the table, retry with any
+  // trailing "_v<digits>" stripped before giving up.
+  function kindEntry(kind) {
+    if (!kind) return null;
+    if (OBS_SETTINGS_LABELS[kind]) return OBS_SETTINGS_LABELS[kind];
+    const stripped = kind.replace(/_v\d+$/, "");
+    if (stripped !== kind && OBS_SETTINGS_LABELS[stripped]) return OBS_SETTINGS_LABELS[stripped];
+    return null;
+  }
+
+  // Nicer display name for a recognized source/filter "kind", or null if
+  // this kind isn't in the lookup table (see obs-settings-labels.js).
+  function kindLabel(kind, hass) {
+    const entry = kindEntry(kind);
+    if (!entry || !entry.label) return null;
+    const lang = settingsLang(hass);
+    return entry.label[lang] || entry.label.en || null;
+  }
+
+  // Nicer label for one settings field of a recognized kind, or null if
+  // unknown (the caller falls back to the raw field key in that case). A
+  // few plugins (e.g. Gradient Source) number otherwise-identical fields
+  // ("midpoint_1".."midpoint_9") - if the exact key isn't found, retry with
+  // any trailing "_<digits>" stripped.
+  function fieldLabel(kind, fieldKey, hass) {
+    const entry = kindEntry(kind);
+    const fields = entry && entry.fields;
+    if (!fields) return null;
+    let fieldEntry = fields[fieldKey];
+    if (!fieldEntry) {
+      const stripped = fieldKey.replace(/_\d+$/, "");
+      if (stripped !== fieldKey) fieldEntry = fields[stripped];
+    }
+    if (!fieldEntry) return null;
+    const lang = settingsLang(hass);
+    return fieldEntry[lang] || fieldEntry.en || null;
+  }
+
+  function settingsFieldType(value) {
+    if (typeof value === "boolean") return "boolean";
+    if (typeof value === "number") return "number";
+    if (typeof value === "string") return "string";
+    return "json"; // object, array, null - edited as raw JSON
+  }
+
   class ObsSceneTreeCard extends HTMLElement {
     setConfig(config) {
       this._config = config || {};
@@ -616,65 +680,26 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
 
     // --- settings dialog: data -----------------------------------------
 
+    // Thin wrappers around the module-level helpers above (shared with
+    // ObsSettingCard) so the rest of this class's code doesn't change.
     _settingsFieldType(value) {
-      if (typeof value === "boolean") return "boolean";
-      if (typeof value === "number") return "number";
-      if (typeof value === "string") return "string";
-      return "json"; // object, array, null - edited as raw JSON
+      return settingsFieldType(value);
     }
 
-    // Two-letter language code HA is currently set to ("de", "en", ...),
-    // derived from hass.locale.language (modern frontends) or hass.language
-    // (older ones), defaulting to English.
     _settingsLang() {
-      const hass = this._hass;
-      const raw = (hass && hass.locale && hass.locale.language) || (hass && hass.language) || "en";
-      return String(raw).split("-")[0].toLowerCase();
+      return settingsLang(this._hass);
     }
 
-    // Looks up a "kind" in OBS_SETTINGS_LABELS, or null if unknown. Some
-    // built-in OBS sources exist in versioned variants on the wire - e.g.
-    // newer OBS builds report "text_gdiplus_v3" / "color_source_v3" instead
-    // of the plain "text_gdiplus" / "color_source" id (OBS keeps the old,
-    // unsuffixed id registered too, for loading old scene collections, but
-    // newly created sources get the versioned one). The settings fields are
-    // the same set either way, just with revised internal defaults - so if
-    // the exact (possibly versioned) kind isn't in the table, retry with
-    // any trailing "_v<digits>" stripped before giving up.
     _kindEntry(kind) {
-      if (!kind) return null;
-      if (OBS_SETTINGS_LABELS[kind]) return OBS_SETTINGS_LABELS[kind];
-      const stripped = kind.replace(/_v\d+$/, "");
-      if (stripped !== kind && OBS_SETTINGS_LABELS[stripped]) return OBS_SETTINGS_LABELS[stripped];
-      return null;
+      return kindEntry(kind);
     }
 
-    // Nicer display name for a recognized source/filter "kind", or null if
-    // this kind isn't in the lookup table (see obs-settings-labels.js).
     _kindLabel(kind) {
-      const entry = this._kindEntry(kind);
-      if (!entry || !entry.label) return null;
-      const lang = this._settingsLang();
-      return entry.label[lang] || entry.label.en || null;
+      return kindLabel(kind, this._hass);
     }
 
-    // Nicer label for one settings field of a recognized kind, or null if
-    // unknown (the caller falls back to the raw field key in that case).
-    // A few plugins (e.g. Gradient Source) number otherwise-identical
-    // fields ("midpoint_1".."midpoint_9") - if the exact key isn't found,
-    // retry with any trailing "_<digits>" stripped.
     _fieldLabel(kind, fieldKey) {
-      const entry = this._kindEntry(kind);
-      const fields = entry && entry.fields;
-      if (!fields) return null;
-      let fieldEntry = fields[fieldKey];
-      if (!fieldEntry) {
-        const stripped = fieldKey.replace(/_\d+$/, "");
-        if (stripped !== fieldKey) fieldEntry = fields[stripped];
-      }
-      if (!fieldEntry) return null;
-      const lang = this._settingsLang();
-      return fieldEntry[lang] || fieldEntry.en || null;
+      return fieldLabel(kind, fieldKey, this._hass);
     }
 
     _renderSettingsFields(settings, kind) {
@@ -972,5 +997,405 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
     name: "OBS Szenen-Baum",
     description:
       "Szenen -> Quellen -> Filter zum Durchklicken, mit Schaltern für Sichtbarkeit und Filter (OBS Stream Monitor).",
+  });
+
+  /**
+   * OBS Einstellung - a small companion card that pins exactly ONE raw OBS
+   * setting (the kind of field the big "OBS Szenen-Baum" card's gear-icon
+   * dialog shows a whole form of - see that dialog for background) as its
+   * own standalone dashboard card, so a value you check/change often (a
+   * recording path, a text source's content, ...) doesn't need opening that
+   * dialog every time. Reuses the exact same backend WebSocket commands
+   * (websocket_api.py) and the same kind/field label lookup as that dialog.
+   *
+   * Config:
+   *   source:   (required) the OBS source's own name, exactly as it's
+   *             named inside OBS (not the Home Assistant entity name)
+   *   field:    (required) the raw settings key to show, e.g. "path" or
+   *             "text" - open the big card's settings dialog once to see
+   *             the available raw keys (shown in parentheses next to each
+   *             field's label) for that source/filter
+   *   filter:   (optional) a filter name on that source - if set, targets
+   *             that filter's settings instead of the source's own
+   *   title:    (optional) card header override; defaults to the field's
+   *             nice label (if the source/filter "kind" is recognized) or
+   *             else the raw field key
+   *   entry_id: (optional) only needed with more than one OBS Stream
+   *             Monitor integration entry set up - picked automatically
+   *             when there's just one
+   */
+  class ObsSettingCard extends HTMLElement {
+    setConfig(config) {
+      if (!config || !config.source || !config.field) {
+        throw new Error(
+          'obs-setting-card: "source" und "field" sind Pflichtfelder in der Karten-Konfiguration.'
+        );
+      }
+      this._config = config;
+      this._state = {
+        loading: true,
+        saving: false,
+        error: null,
+        kind: null,
+        value: undefined,
+        fieldType: null,
+      };
+      this._fetched = false;
+    }
+
+    set hass(hass) {
+      this._hass = hass;
+      if (!this._fetched) {
+        this._fetched = true;
+        this._fetchValue();
+        return;
+      }
+      // Same reasoning as ObsSceneTreeCard's hass setter: don't let the
+      // ~10s-wide flood of unrelated state updates stomp on an in-progress
+      // edit. This card never polls OBS itself (see module docstring
+      // above), so there's nothing new to show on a routine hass update
+      // anyway - only the initial fetch and explicit refresh/save matter.
+      if (!this._root) this._render();
+    }
+
+    getCardSize() {
+      return 2;
+    }
+
+    static getStubConfig() {
+      return { source: "", field: "" };
+    }
+
+    // Resolves which config entry to talk to: explicit config.entry_id if
+    // given, otherwise the sole OBS Stream Monitor entry currently set up
+    // (every entity this integration creates - not just Szenen-Baum ones -
+    // carries an "obs_entry_id" attribute, see sensor.py/switch.py). With
+    // more than one entry and no explicit entry_id, fails clearly rather
+    // than silently guessing which installation was meant.
+    _resolveEntryId() {
+      if (this._config.entry_id) return this._config.entry_id;
+      const hass = this._hass;
+      const ids = new Set();
+      if (hass) {
+        for (const st of Object.values(hass.states)) {
+          const entryId = (st.attributes || {}).obs_entry_id;
+          if (entryId) ids.add(entryId);
+        }
+      }
+      if (ids.size === 1) return [...ids][0];
+      if (ids.size === 0) {
+        throw new Error("Keine OBS-Stream-Monitor-Integration gefunden.");
+      }
+      throw new Error(
+        'Mehrere OBS-Stream-Monitor-Einträge gefunden - "entry_id" in der Karten-Konfiguration angeben.'
+      );
+    }
+
+    _wsErrorMessage(err) {
+      if (err && typeof err === "object" && err.message) return err.message;
+      return String(err);
+    }
+
+    _fetchMessage(entryId) {
+      return this._config.filter
+        ? {
+            type: "obs_stream_monitor/get_filter_settings",
+            entry_id: entryId,
+            source_name: this._config.source,
+            filter_name: this._config.filter,
+          }
+        : {
+            type: "obs_stream_monitor/get_input_settings",
+            entry_id: entryId,
+            source_name: this._config.source,
+          };
+    }
+
+    _saveMessage(entryId, value) {
+      const settings = { [this._config.field]: value };
+      return this._config.filter
+        ? {
+            type: "obs_stream_monitor/set_filter_settings",
+            entry_id: entryId,
+            source_name: this._config.source,
+            filter_name: this._config.filter,
+            settings,
+          }
+        : {
+            type: "obs_stream_monitor/set_input_settings",
+            entry_id: entryId,
+            source_name: this._config.source,
+            settings,
+          };
+    }
+
+    async _fetchValue() {
+      this._state = { ...this._state, loading: true, error: null };
+      this._render();
+      try {
+        const entryId = this._resolveEntryId();
+        const resp = await this._hass.callWS(this._fetchMessage(entryId));
+        const settings = resp.settings || {};
+        if (!(this._config.field in settings)) {
+          throw new Error(`Feld "${this._config.field}" nicht in den Einstellungen gefunden.`);
+        }
+        const value = settings[this._config.field];
+        this._state = {
+          loading: false,
+          saving: false,
+          error: null,
+          kind: resp.kind,
+          value,
+          fieldType: settingsFieldType(value),
+        };
+      } catch (err) {
+        this._state = { ...this._state, loading: false, error: this._wsErrorMessage(err) };
+      }
+      this._render();
+    }
+
+    _parseFormValue(raw) {
+      const type = this._state.fieldType;
+      if (type === "boolean") return !!raw;
+      if (type === "number") return raw === "" ? 0 : Number(raw);
+      if (type === "json") {
+        try {
+          return JSON.parse(raw);
+        } catch (err) {
+          throw new Error(`Ungültiges JSON: ${err.message}`);
+        }
+      }
+      return raw;
+    }
+
+    async _save(rawValue) {
+      if (this._state.saving) return;
+      let value;
+      try {
+        value = this._parseFormValue(rawValue);
+      } catch (err) {
+        this._state = { ...this._state, error: err.message };
+        this._render();
+        return;
+      }
+      this._state = { ...this._state, saving: true, error: null };
+      this._render();
+      try {
+        const entryId = this._resolveEntryId();
+        await this._hass.callWS(this._saveMessage(entryId, value));
+        this._state = { ...this._state, saving: false, value };
+      } catch (err) {
+        this._state = { ...this._state, saving: false, error: this._wsErrorMessage(err) };
+      }
+      this._render();
+    }
+
+    _styles() {
+      return `
+        <style>
+          ha-card { overflow: hidden; }
+          .osc-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 16px 16px 4px;
+          }
+          .osc-main { display: flex; flex-direction: column; min-width: 0; }
+          .osc-title { font-size: 15px; color: var(--primary-text-color); }
+          .osc-subtitle {
+            font-size: 12px;
+            color: var(--secondary-text-color);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .osc-refresh {
+            flex: 0 0 auto;
+            background: none;
+            border: none;
+            color: var(--secondary-text-color);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: inline-flex;
+          }
+          .osc-refresh:hover { background: var(--secondary-background-color); color: var(--primary-color); }
+          .osc-refresh:disabled { opacity: 0.4; cursor: default; }
+          .osc-body { padding: 4px 16px 16px; }
+          .osc-note { font-size: 13px; color: var(--secondary-text-color); margin: 0; }
+          .osc-error {
+            background: var(--error-color, #db4437);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 10px;
+          }
+          .osc-field-row { display: flex; gap: 8px; align-items: center; }
+          .osc-field input[type="text"],
+          .osc-field input[type="number"],
+          .osc-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            font: inherit;
+            font-size: 14px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--divider-color);
+            background: var(--card-background-color, #fff);
+            color: var(--primary-text-color);
+          }
+          .osc-field textarea { font-family: var(--code-font-family, ui-monospace, monospace); font-size: 12px; resize: vertical; }
+          .osc-btn-save {
+            flex: 0 0 auto;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            background: var(--primary-color);
+            color: var(--text-primary-color, #fff);
+          }
+          .osc-btn-save:disabled { opacity: 0.5; cursor: default; }
+          .osc-switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+          }
+          .osc-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+          .osc-switch .osc-slider {
+            position: absolute;
+            inset: 0;
+            background-color: var(--switch-unchecked-track-color, #939393);
+            transition: background-color 0.2s;
+            border-radius: 20px;
+            cursor: pointer;
+          }
+          .osc-switch .osc-slider::before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            top: 2px;
+            background-color: #fff;
+            transition: transform 0.2s;
+            border-radius: 50%;
+          }
+          .osc-switch input:checked + .osc-slider {
+            background-color: var(--switch-checked-track-color, var(--primary-color));
+          }
+          .osc-switch input:checked + .osc-slider::before { transform: translateX(16px); }
+          .osc-switch input:disabled + .osc-slider { opacity: 0.4; cursor: default; }
+        </style>
+      `;
+    }
+
+    _renderInput() {
+      const s = this._state;
+      if (s.value === undefined) return "";
+      const type = s.fieldType;
+      if (type === "boolean") {
+        return `
+          <div class="osc-field">
+            <label class="osc-switch">
+              <input type="checkbox" data-value ${s.value ? "checked" : ""} ${s.saving ? "disabled" : ""}>
+              <span class="osc-slider"></span>
+            </label>
+          </div>
+        `;
+      }
+      if (type === "number") {
+        return `
+          <div class="osc-field osc-field-row">
+            <input type="number" step="any" data-value value="${esc(s.value)}" ${s.saving ? "disabled" : ""}>
+            <button class="osc-btn-save" data-save ${s.saving ? "disabled" : ""}>${s.saving ? "…" : "Speichern"}</button>
+          </div>
+        `;
+      }
+      if (type === "json") {
+        return `
+          <div class="osc-field">
+            <textarea data-value rows="4" ${s.saving ? "disabled" : ""}>${esc(JSON.stringify(s.value, null, 2))}</textarea>
+            <button class="osc-btn-save" data-save style="margin-top: 8px;" ${s.saving ? "disabled" : ""}>${s.saving ? "Speichert…" : "Speichern"}</button>
+          </div>
+        `;
+      }
+      // string - the common case (path, text, filename_formatting, ...)
+      return `
+        <div class="osc-field osc-field-row">
+          <input type="text" data-value value="${esc(s.value)}" ${s.saving ? "disabled" : ""}>
+          <button class="osc-btn-save" data-save ${s.saving ? "disabled" : ""}>${s.saving ? "…" : "Speichern"}</button>
+        </div>
+      `;
+    }
+
+    _render() {
+      if (!this._hass) return;
+      if (!this._root) {
+        this._root = this.attachShadow({ mode: "open" });
+      }
+      const s = this._state;
+      const niceLabel = fieldLabel(s.kind, this._config.field, this._hass);
+      const header = this._config.title || niceLabel || this._config.field;
+      const kLabel = kindLabel(s.kind, this._hass);
+      const contextLine = this._config.filter
+        ? `${this._config.source} › ${this._config.filter}`
+        : this._config.source;
+
+      let body;
+      if (s.loading) {
+        body = `<p class="osc-note">Lädt…</p>`;
+      } else if (s.error && s.value === undefined) {
+        body = `<div class="osc-error">${esc(s.error)}</div>`;
+      } else {
+        body = `
+          ${s.error ? `<div class="osc-error">${esc(s.error)}</div>` : ""}
+          ${this._renderInput()}
+        `;
+      }
+
+      this._root.innerHTML = `
+        ${this._styles()}
+        <ha-card>
+          <div class="osc-header">
+            <div class="osc-main">
+              <span class="osc-title">${esc(header)}</span>
+              <span class="osc-subtitle">${esc(contextLine)}${kLabel ? " · " + esc(kLabel) : ""}</span>
+            </div>
+            <button class="osc-refresh" data-refresh title="Aktualisieren" ${s.loading || s.saving ? "disabled" : ""}>
+              <ha-icon icon="mdi:refresh"></ha-icon>
+            </button>
+          </div>
+          <div class="osc-body">${body}</div>
+        </ha-card>
+      `;
+
+      const refreshBtn = this._root.querySelector("[data-refresh]");
+      if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => this._fetchValue());
+      }
+      const valueEl = this._root.querySelector("[data-value]");
+      if (valueEl && s.fieldType === "boolean") {
+        valueEl.addEventListener("change", (ev) => this._save(ev.target.checked));
+      }
+      const saveBtn = this._root.querySelector("[data-save]");
+      if (saveBtn && valueEl) {
+        saveBtn.addEventListener("click", () => this._save(valueEl.value));
+      }
+    }
+  }
+
+  customElements.define("obs-setting-card", ObsSettingCard);
+
+  window.customCards.push({
+    type: "obs-setting-card",
+    name: "OBS Einstellung",
+    description:
+      "Eine einzelne OBS-Quellen-/Filter-Einstellung (z. B. Aufnahmepfad) als eigene Karte (OBS Stream Monitor).",
   });
 })();

@@ -2,10 +2,13 @@
 
 Optionale Funktion von OBS Stream Monitor: eine eigene Dashboard-Karte, die OBS' Szenen,
 die Quellen darin und deren Filter zum Durchklicken zeigt — mit Schaltern für
-Quellen-Sichtbarkeit (das Augen-Symbol in OBS) und Filter an/aus.
+Quellen-Sichtbarkeit (das Augen-Symbol in OBS) und Filter an/aus. Dieselbe Ressource bringt
+außerdem eine zweite, kleinere Karte mit ("OBS Einstellung" - siehe "Einzelne Einstellung
+als eigene Karte" weiter unten), mit der sich ein einzelnes Feld fest auf dem Dashboard
+anheften lässt.
 
 Technisch zwei getrennte Teile: Schalter-Entitäten (kommen von der Integration selbst) und
-eine Dashboard-Karte (eine JavaScript-Datei, die die Integration mitliefert). Beide müssen
+die Dashboard-Karten (eine JavaScript-Datei, die die Integration mitliefert). Beide müssen
 einmalig aktiviert werden.
 
 ## 1. Schalter-Entitäten aktivieren
@@ -18,14 +21,15 @@ Ab jetzt fragt die Integration bei jeder Abfrage zusätzlich alle Szenen, deren 
 deren Filter ab. Bei sehr vielen Szenen/Quellen kann das die Abfrage minimal verlangsamen —
 für ein normales Streaming-Setup (ein paar Szenen, einige Quellen) kein Thema.
 
-## 2. Die Dashboard-Karte als Ressource eintragen
+## 2. Die Dashboard-Karten als Ressource eintragen
 
 Das kann Home Assistant nicht automatisch für dich tun — eine Integration darf keine
-Lovelace-Ressource selbst eintragen. Einmalig von Hand:
+Lovelace-Ressource selbst eintragen. Einmalig von Hand (gilt für beide Karten, "OBS
+Szenen-Baum" und "OBS Einstellung" - beide stecken in derselben Datei):
 
 1. **Einstellungen → Dashboards** → oben rechts die drei Punkte → **Ressourcen**
 2. **Ressource hinzufügen**
-3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.5.9`
+3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.7.0`
 4. **Ressourcentyp:** JavaScript-Modul
 5. Speichern
 
@@ -34,10 +38,10 @@ Modus" (Experten-Modus) einschalten, dann erscheint der Menüpunkt.
 
 **Wichtig bei künftigen Updates:** Home Assistant/der Browser cached diese JS-Datei hartnäckig
 unter ihrer URL — ein reines Integrations-Update + Neustart reicht oft nicht, die neue
-Version wird angezeigt. Nach jedem Update, das die Karte selbst betrifft, die Ressourcen-URL
-in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.5.10`) und danach im Browser
-hart neu laden (Strg+Shift+R). Die jeweils aktuelle Versionsnummer steht in den
-Release-Notes.
+Version wird angezeigt. Nach jedem Update, das eine der beiden Karten betrifft, die
+Ressourcen-URL in Schritt 3 auf die neue Versionsnummer hochziehen (z. B. `?v=0.7.1`) und
+danach im Browser hart neu laden (Strg+Shift+R). Die jeweils aktuelle Versionsnummer steht in
+den Release-Notes.
 
 **Updates mit Backend-Änderungen** (steht in den Release-Notes, z. B. "enthält
 Backend-Änderungen") brauchen zusätzlich einen **Neustart von Home Assistant** - ein reiner
@@ -148,6 +152,54 @@ Wichtig dabei:
   v0.5.9 erkennt die Übersetzungstabelle das automatisch und zeigt trotzdem die schönen
   Beschriftungen an.
 
+## Einzelne Einstellung als eigene Karte
+
+Seit v0.7.0 gibt es zusätzlich zum Zahnrad-Dialog eine eigene, kleinere Karte
+**"OBS Einstellung"** (`custom:obs-setting-card`), die genau **ein** Feld fest auf dem
+Dashboard zeigt - praktisch für Werte, die man oft braucht (z. B. den Aufnahmepfad), ohne
+jedes Mal den Dialog zu öffnen. Dieselbe Ressource wie oben reicht dafür aus, kein
+zusätzlicher Eintrag unter "Ressourcen" nötig - und anders als die große Karte braucht sie
+auch nicht "Szenen-Baum aktivieren" (Schritt 1 oben): sie spricht OBS direkt über Quellen-/
+Filternamen an, ganz unabhängig von den Szenen-Baum-Schalter-Entitäten.
+
+Karte hinzufügen wie gewohnt (**Karte hinzufügen** → nach "OBS Einstellung" suchen), dann im
+YAML-Editor der Karte mindestens `source` und `field` angeben:
+
+```yaml
+type: custom:obs-setting-card
+source: Kesselcam
+field: path
+```
+
+Für die Einstellung eines **Filters** zusätzlich `filter` angeben:
+
+```yaml
+type: custom:obs-setting-card
+source: Kesselcam
+filter: Source Record
+field: path
+```
+
+- `source`: der Name der Quelle **wie in OBS selbst** (nicht der Home-Assistant-Entitätsname)
+- `field`: der rohe, technische Feldname - am einfachsten einmal über den Zahnrad-Dialog
+  derselben Quelle/desselben Filters nachsehen (steht dort klein neben jeder Beschriftung in
+  Klammern, siehe "Einstellungen bearbeiten" oben)
+- `filter` (optional): Name eines Filters auf dieser Quelle, falls das Feld zu einem Filter
+  statt zur Quelle selbst gehört
+- `title` (optional): eigene Kartenüberschrift statt der automatisch ermittelten Beschriftung
+- `entry_id` (optional): nur nötig bei mehreren OBS-Installationen/Integrationseinträgen -
+  wird bei nur einem Eintrag automatisch erkannt
+
+Die Karte lädt den aktuellen Wert direkt beim Öffnen des Dashboards (und über das
+Aktualisieren-Symbol oben rechts jederzeit erneut) - anders als die Sensoren hier läuft das
+nicht über die normale 10-Sekunden-Abfrage. Häkchen-Felder (boolean) werden sofort beim
+Umschalten gespeichert, alle anderen Feldtypen (Text, Zahl, JSON) erst nach Klick auf
+"Speichern".
+
+Mehrere dieser Karten lassen sich z. B. über eine "Raster"-Stapelkarte (`type: grid`)
+nebeneinander anordnen - etwa eine kleine Zusammenstellung der am häufigsten geänderten
+Werte, ohne jedes Mal durch den Szenen-Baum navigieren zu müssen.
+
 ## Einstellungen per Automatisierung setzen
 
 Seit v0.5.8 gibt es dieselbe Funktion wie den Zahnrad-Dialog auch als ganz normalen Home
@@ -206,7 +258,9 @@ Auch über **Entwicklerwerkzeuge → Aktionen** direkt testbar (Ziel-Entität au
 
 | Symptom | Ursache | Lösung |
 |---|---|---|
-| Karte "OBS Szenen-Baum" taucht beim Kartenhinzufügen nicht auf | Ressource (Schritt 2) fehlt oder falsch eingetragen, oder Browser-Cache | URL exakt prüfen, Seite neu laden (Strg+Shift+R) |
+| Karte "OBS Szenen-Baum" oder "OBS Einstellung" taucht beim Kartenhinzufügen nicht auf | Ressource (Schritt 2) fehlt oder falsch eingetragen, oder Browser-Cache | URL exakt prüfen, Seite neu laden (Strg+Shift+R) |
+| "OBS Einstellung"-Karte zeigt `Feld "..." nicht in den Einstellungen gefunden` | Feldname (`field`) stimmt nicht exakt mit dem rohen Namen überein, oder `source`/`filter` falsch geschrieben | Einmal den Zahnrad-Dialog derselben Quelle/desselben Filters öffnen und den exakten rohen Feldnamen (in Klammern) übernehmen |
+| "OBS Einstellung"-Karte zeigt `Mehrere OBS-Stream-Monitor-Einträge gefunden` | Mehr als eine OBS-Installation/Integrationseintrag vorhanden, Karte kann nicht automatisch raten, welcher gemeint ist | `entry_id` in der Karten-Konfiguration ergänzen (siehe Schritt 3 oben, "Falls mehrere OBS-Installationen...") |
 | Nach einem Update verhält sich die Karte noch wie vorher (z. B. `scene`-Feld ohne Wirkung) | Alte JS-Datei noch im Cache - weder Integrations-Update+Neustart noch normales Neuladen der Seite erzwingen das Nachladen | Ressourcen-URL um `?v=<neue Version>` ergänzen (siehe oben) und hart neu laden (Strg+Shift+R); zusätzlich prüfen, ob die Integration wirklich auf der neuen Version ist (Geräte & Dienste → OBS Stream Monitor) |
 | Karte zeigt "Noch keine Daten" dauerhaft | Schritt 1 (Szenen-Baum aktivieren) nicht gemacht, oder OBS gerade nicht erreichbar | Integrations-Optionen prüfen; Sensor "Aktuelle Szene" sollte einen Wert zeigen |
 | Schalter lässt sich nicht bedienen (ausgegraut) | Entität aktuell "nicht verfügbar", meist weil OBS nicht läuft oder die Quelle/der Filter inzwischen umbenannt/gelöscht wurde | OBS-Erreichbarkeit prüfen; bei Umbenennung siehe "Bekannte Einschränkungen" oben |

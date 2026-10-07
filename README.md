@@ -1,6 +1,6 @@
 # OBS Stream Monitor for Home Assistant
 
-A Home Assistant custom integration that pulls read-only stream/recording stats from [OBS Studio](https://obsproject.com/) via its built-in [obs-websocket v5](https://github.com/obsproject/obs-websocket) server, plus optional extras: a switch to launch OBS on the remote machine (or close it again, gracefully), switches to start/stop the stream and recording, dropdowns to switch OBS's profile and scene collection, a service to push raw source/filter settings from automations, and a click-through dashboard card for OBS's scenes/sources/filters with visibility and filter toggles.
+A Home Assistant custom integration that pulls read-only stream/recording stats from [OBS Studio](https://obsproject.com/) via its built-in [obs-websocket v5](https://github.com/obsproject/obs-websocket) server, plus optional extras: a switch to launch OBS on the remote machine (or close it again, gracefully), switches to start/stop the stream and recording, dropdowns to switch OBS's profile and scene collection, a service to push raw source/filter settings from automations, a click-through dashboard card for OBS's scenes/sources/filters with visibility and filter toggles, and a small companion card to pin a single raw source/filter setting on its own.
 
 ## Requirements
 
@@ -90,6 +90,18 @@ This needs two one-time setup steps (adding the card's resource, then adding the
 **Full step-by-step setup, including the resource/dashboard steps and a troubleshooting table, is in [docs/scene-tree-dashboard-setup.md](docs/scene-tree-dashboard-setup.md).**
 
 This is actual control, not monitoring, so it's off by default like the other extras — leave the checkbox unticked to keep the integration read-only. Note: this adds extra obs-websocket requests per poll (one per scene, plus one per source for its filters), which is negligible for a normal streaming setup but worth knowing if you have an unusually large number of scenes.
+
+### Pinning a single setting as its own card
+
+The scene-tree card's gear-icon dialog edits a whole source's/filter's raw settings at once. For a value you check or change often (a recording path, a text source's content, ...), the same JS resource also ships a smaller companion card, `custom:obs-setting-card`, that shows just one field:
+
+```yaml
+type: custom:obs-setting-card
+source: Kesselcam
+field: path
+```
+
+Doesn't need "Szenen-Baum aktivieren" turned on - it talks to OBS directly by source/filter name, independent of the scene-tree switches. Full config options (including targeting a filter's field, and the multi-instance `entry_id`) in [docs/scene-tree-dashboard-setup.md](docs/scene-tree-dashboard-setup.md#einzelne-einstellung-als-eigene-karte).
 
 ### Multiple OBS installations
 
