@@ -900,7 +900,7 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
         <div class="otc-modal-backdrop" data-modal-close>
           <div class="otc-modal" data-modal-stop>
             <div class="otc-modal-header">
-              <span class="otc-modal-title">Einstellungen: ${esc(title)}</span>
+              <span class="otc-modal-title" title="${esc(title)}">Einstellungen: ${esc(title)}</span>
               <button class="otc-modal-close" data-modal-close title="Schließen">
                 <ha-icon icon="mdi:close"></ha-icon>
               </button>
@@ -1365,7 +1365,7 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
           <div class="osc-header">
             <div class="osc-main">
               <span class="osc-title">${esc(header)}</span>
-              <span class="osc-subtitle">${esc(contextLine)}${kLabel ? " · " + esc(kLabel) : ""}</span>
+              <span class="osc-subtitle" title="${esc(contextLine)}">${esc(contextLine)}${kLabel ? " · " + esc(kLabel) : ""}</span>
             </div>
             <button class="osc-refresh" data-refresh title="Aktualisieren" ${s.loading || s.saving ? "disabled" : ""}>
               <ha-icon icon="mdi:refresh"></ha-icon>
