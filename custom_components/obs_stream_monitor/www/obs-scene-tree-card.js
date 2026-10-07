@@ -1422,6 +1422,14 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
    * without it (or for a field this card doesn't know about yet) the
    * fields just stay plain free-text inputs - nothing stops working.
    *
+   * "Feld (field)" gets the same treatment once a source (and, for a
+   * filter's own field, a filter too) is picked: its raw settings-key
+   * suggestions come from the selected source's/filter's "kind" attribute
+   * (source_kind/filter_kind) looked up in the same obs-settings-labels.js
+   * table the big card's settings dialog uses for its nicer field labels -
+   * see _fieldSuggestions(). Unknown/unrecognized kinds just leave that
+   * field plain free-text too, exactly like the raw-key fallback there.
+   *
    * Implements the standard, framework-free Lovelace custom-card editor
    * contract: setConfig(config) / a "hass" setter, and a "config-changed"
    * CustomEvent (bubbling, composed so it crosses this element's own
@@ -1436,7 +1444,21 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
 
     set hass(hass) {
       this._hass = hass;
-      this._render();
+      // Same bug, same fix as ObsSceneTreeCard's settings dialog and
+      // ObsSettingCard: Home Assistant calls this setter on every state
+      // update anywhere in the system - as often as every ~10s from this
+      // integration's own poll alone. A full _render() tears the whole
+      // form's DOM down and rebuilds it from this._config, which resets
+      // focus and throws away anything typed into a field since its last
+      // "change" (blur/Enter) - while this editor is open (adding or
+      // editing a card), that happened mid-typing roughly every 10
+      // seconds. setConfig() already calls _render() explicitly whenever
+      // the config actually changes (a field edited, a different card
+      // loaded), so skipping the automatic one here only means the
+      // source/filter suggestion lists go stale if a brand new Szenen-
+      // Baum entity shows up while this exact dialog is open - fine, it's
+      // current again next time the editor is opened.
+      if (!this._root) this._render();
     }
 
     // All switch entities the integration's "Szenen-Baum" feature creates
@@ -1472,6 +1494,40 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
         }
       }
       return [...names].sort((a, b) => a.localeCompare(b));
+    }
+
+    // Raw settings-field keys known for the currently selected source's (or,
+    // if a filter is also set, that filter's) "kind" - the same lookup
+    // table (obs-settings-labels.js, via kindEntry()) the big card's own
+    // settings dialog uses to show a nicer label next to each raw field.
+    // The kind itself comes from the matching Szenen-Baum switch entity's
+    // source_kind/filter_kind attribute (switch.py) - not from an extra WS
+    // call, so this stays free/instant like the source and filter
+    // suggestions. Empty (no suggestions, field stays plain free-text)
+    // until a source is chosen and its kind is both known and recognized -
+    // never an error.
+    _fieldSuggestions() {
+      const source = this._config.source;
+      if (!source) return [];
+      const filter = this._config.filter;
+      let kind = null;
+      for (const e of this._sceneTreeEntities()) {
+        if (e.attributes.source !== source) continue;
+        if (filter) {
+          if (e.attributes.obs_role === "filter" && e.attributes.filter === filter) {
+            kind = e.attributes.filter_kind;
+            break;
+          }
+        } else if (e.attributes.obs_role === "scene_item") {
+          kind = e.attributes.source_kind;
+          break;
+        }
+      }
+      const entry = kindEntry(kind);
+      if (!entry || !entry.fields) return [];
+      return Object.keys(entry.fields)
+        .map((key) => ({ key, label: fieldLabel(kind, key, this._hass) }))
+        .sort((a, b) => a.key.localeCompare(b.key));
     }
 
     // Applies one field's edited value to the config (deleting the key
@@ -1548,6 +1604,9 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
       const filterOptions = this._filterSuggestions()
         .map((f) => `<option value="${esc(f)}">`)
         .join("");
+      const fieldOptions = this._fieldSuggestions()
+        .map(({ key, label }) => `<option value="${esc(key)}"${label ? ` label="${esc(label)}"` : ""}>`)
+        .join("");
 
       this._root.innerHTML = `
         ${this._styles()}
@@ -1555,7 +1614,8 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
         <datalist id="osce-sources">${sourceOptions}</datalist>
         ${this._field("filter", "Filter (optional)", { hint: "nur für ein Filter-Feld", list: "osce-filters" })}
         <datalist id="osce-filters">${filterOptions}</datalist>
-        ${this._field("field", "Feld (field)", { hint: "Pflichtfeld, roher Name aus dem Zahnrad-Dialog" })}
+        ${this._field("field", "Feld (field)", { hint: "Pflichtfeld, roher Name aus dem Zahnrad-Dialog", list: "osce-fields" })}
+        <datalist id="osce-fields">${fieldOptions}</datalist>
         ${this._field("title", "Titel (optional)")}
         ${this._field("entry_id", "entry_id (optional)", { hint: "nur bei mehreren OBS-Installationen nötig" })}
       `;

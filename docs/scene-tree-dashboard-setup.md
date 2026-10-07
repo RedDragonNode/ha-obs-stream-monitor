@@ -29,7 +29,7 @@ Szenen-Baum" und "OBS Einstellung" - beide stecken in derselben Datei):
 
 1. **Einstellungen → Dashboards** → oben rechts die drei Punkte → **Ressourcen**
 2. **Ressource hinzufügen**
-3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.7.2`
+3. **URL:** `/obs_stream_monitor_card/obs-scene-tree-card.js?v=0.7.3`
 4. **Ressourcentyp:** JavaScript-Modul
 5. Speichern
 
@@ -178,6 +178,12 @@ Die Felder "Quelle" und "Filter" im Formular bieten dabei Autovervollständigung
 exakten Namen aus den bereits bestehenden "Szenen-Baum"-Schalter-Entitäten (sofern "Szenen-
 Baum aktivieren", Schritt 1 oben, an ist) - praktisch, um sich nicht bei langen Filternamen
 zu vertippen. Ohne aktivierten Szenen-Baum bleiben die Felder normale Texteingaben.
+
+Seit v0.7.3 bekommt auch **"Feld (field)"** Namensvorschläge: sobald "Quelle" (und bei einem
+Filter-Feld zusätzlich "Filter") ausgefüllt ist und der Typ der Quelle/des Filters erkannt
+wird, schlägt das Formular die bekannten rohen Feldnamen dieses Typs vor, mit derselben
+schönen Bezeichnung wie im Zahnrad-Dialog (z. B. "Image File (file)"). Bei einem nicht
+erkannten Typ bleibt das Feld wie gehabt ein einfaches Textfeld.
 
 Für die Einstellung eines **Filters** zusätzlich `filter` angeben:
 
