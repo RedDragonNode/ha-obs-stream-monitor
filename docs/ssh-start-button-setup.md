@@ -5,6 +5,16 @@ Windows-Rechner startet, auch wenn es gerade nicht läuft - und beim Ausschalten
 **sanft beendet** (nicht hart abgewürgt). Da obs-websocket nur mit einem bereits laufenden
 OBS sprechen kann, läuft beides über eine SSH-Verbindung zu Windows.
 
+**Wichtig ab v0.7.5 (betrifft alle, die den Schalter schon eingerichtet hatten):** Das
+Ausschalten brauchte bis v0.7.4 keine eigene Scheduled Task - lief aber deshalb direkt über
+die SSH-Sitzung, und genau das stellte sich als grundsätzlich unzuverlässig heraus: Eine
+SSH-Sitzung läuft in einer eigenen, nicht-interaktiven Windows-Sitzung und kann die Fenster
+von OBS auf dem echten Desktop schlicht nicht sehen - unabhängig davon, ob OBS im Tray
+minimiert oder "als Administrator" gestartet ist. Seit v0.7.5 braucht das Ausschalten
+**ebenfalls eine eigene Scheduled Task** (Schritt 3 unten) - ohne sie bleibt der Schalter
+zum Ausschalten mit einer klaren Fehlermeldung ("task does not exist") stehen, bis sie
+angelegt ist. Einschalten ist davon nicht betroffen.
+
 Alles unten ist **einmalig** auf dem Rechner einzurichten, auf dem OBS läuft.
 
 ## 1. OpenSSH-Server aktivieren
@@ -45,22 +55,25 @@ Sollte `Enabled: True`, `Direction: Inbound`, `Action: Allow` zeigen. Fehlt die 
 New-NetFirewallRule -DisplayName "OpenSSH SSH Server (sshd)" -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow
 ```
 
-## 3. Scheduled Task anlegen (einmal pro OBS-Installation)
+## 3. Scheduled Tasks anlegen (je zwei pro OBS-Installation: Starten + Beenden)
 
-Nur fürs **Starten** nötig - das Beenden (Schalter aus) braucht keine eigene Task, siehe
-Schritt 5.
+Beide brauchen dieselbe Grundeinstellung - laufen nur per Fernstart von Home Assistant aus,
+nie nach Zeitplan - und müssen **in der angemeldeten Sitzung** laufen, nicht "unabhängig von
+der Benutzeranmeldung": nur so landen sie auf dem echten, sichtbaren Desktop statt in einer
+unsichtbaren Extra-Sitzung, in der sie OBS weder zeigen noch dessen Fenster finden können.
 
 **Aufgabenplanung** öffnen (Win-Taste → "Aufgabenplanung", oder `taskschd.msc`) →
 **Aufgabenplanungsbibliothek** → rechts **"Aufgabe erstellen..."** (nicht "Einfache Aufgabe
 erstellen" - der hat nicht alle nötigen Optionen).
 
+### 3a. Task zum Starten
+
 - **Reiter "Allgemein":**
-  - Name, z. B. `StartOBS` (muss später 1:1 ins HA-Feld "Name der Scheduled Task")
+  - Name, z. B. `StartOBS` (muss später 1:1 ins HA-Feld "Name der Scheduled Task (Starten)")
   - **"Nur ausführen, wenn der Benutzer angemeldet ist"** auswählen (wichtig! Die
     Alternative "Unabhängig von der Benutzeranmeldung" startet OBS unsichtbar in einer
     eigenen Session statt auf dem echten Desktop)
-- **Reiter "Trigger":** leer lassen - die Aufgabe wird nur per `schtasks /run` von Home
-  Assistant aus ferngestartet, braucht keinen eigenen Zeitplan
+- **Reiter "Trigger":** leer lassen
 - **Reiter "Aktionen" → Neu...:**
   - **Programm/Skript:** Pfad zur exe, die du sonst auch per Doppelklick startest
     (z. B. `...\bin\64bit\obs64.exe` bei einer Portable-Installation)
@@ -68,6 +81,39 @@ erstellen" - der hat nicht alle nötigen Optionen).
     sonst findet eine Portable-Installation ihre lokale Config nicht
 
 Mit OK bestätigen (zwei Dialoge).
+
+### 3b. Task zum Beenden (neu ab v0.7.5)
+
+Braucht zuerst eine kleine Skriptdatei auf dem Windows-Rechner - die eigentliche
+"OBS sanft schließen"-Logik (sucht alle echten Fenster von OBS, auch ein gerade in den
+System-Tray minimiertes, und schickt jedem ein normales Schließen-Signal `WM_CLOSE`, **kein**
+hartes Abwürgen):
+
+1. Datei **`stop-obs.ps1`** aus dem Repo-Zip (Ordner `windows-scripts/`) irgendwohin auf den
+   Windows-Rechner kopieren, z. B. direkt neben die OBS-exe oder nach
+   `C:\Users\DEIN-BENUTZER\obs-stream-monitor\stop-obs.ps1`. Der genaue Ort ist egal - er
+   wird gleich im nächsten Schritt als Pfad eingetragen.
+2. Datei mit einem Texteditor öffnen und ganz oben die Zeile `$ProcessName = 'obs64'` prüfen
+   - bei einer normalen 64-Bit-Installation passt das bereits; bei einer 32-Bit-Installation
+   oder einem umbenannten Build hier den tatsächlichen Namen eintragen, **ohne** `.exe`
+   (genau wie im Task-Manager, Reiter "Details", Spalte "Name", nur ohne die Endung).
+
+Dann die zweite Aufgabe anlegen:
+
+- **Reiter "Allgemein":**
+  - Name, z. B. `StopOBS` (muss später 1:1 ins HA-Feld "Name der Scheduled Task (Beenden)")
+  - **"Nur ausführen, wenn der Benutzer angemeldet ist"** auswählen (genau wie bei 3a - das
+    ist hier sogar der ganze Witz der eigenen Task, siehe die Erklärung oben)
+- **Reiter "Trigger":** leer lassen
+- **Reiter "Aktionen" → Neu...:**
+  - **Programm/Skript:** `powershell.exe`
+  - **Argumente hinzufügen (optional):**
+    `-NoProfile -ExecutionPolicy Bypass -File "C:\Pfad\zu\stop-obs.ps1"` (den Pfad aus
+    Schritt 1 oben einsetzen, in Anführungszeichen)
+
+Mit OK bestätigen (zwei Dialoge). Ein Lauf schreibt sein Ergebnis zusätzlich in eine
+`stop-obs.log`-Datei direkt neben dem Skript - praktisch, falls der Schalter mal nicht
+reagiert und die Aufgabenplanung selbst (Verlauf-Reiter der Task) nicht genug Detail zeigt.
 
 ## 4. SSH-Zugangsdaten besorgen
 
@@ -92,33 +138,29 @@ nicht die PIN.
 ## 5. In Home Assistant eintragen
 
 Integration **OBS Stream Monitor** → **Konfigurieren** → SSH-Benutzername, SSH-Passwort,
-SSH-Port (Standard `22`), Name der Scheduled Task (aus Schritt 3) eintragen. Der
-**"OBS"-Schalter** erscheint danach automatisch, kein Neustart nötig.
-
-Ein neues Feld dabei: **"Prozessname von OBS (für sanftes Beenden)"**, Standard `obs64.exe`.
-Das ist der Name, mit dem OBS im Windows-Task-Manager auftaucht (Reiter "Details", Spalte
-"Name") - bei einer normalen 64-Bit-Installation stimmt der Standardwert praktisch immer,
-bei einer 32-Bit-Installation oder einem umbenannten Build hier den tatsächlichen Namen
-eintragen.
+SSH-Port (Standard `22`), Name der Scheduled Task (Starten) (aus Schritt 3a) und Name der
+Scheduled Task (Beenden) (aus Schritt 3b) eintragen. Der **"OBS"-Schalter** erscheint
+danach automatisch, kein Neustart nötig.
 
 ### Wie der Schalter funktioniert
 
-- **Einschalten:** löst dieselbe Scheduled Task aus wie bisher der "OBS starten"-Button
-  (Schritt 3).
-- **Ausschalten:** sucht per SSH/PowerShell alle echten Fenster (mit Titelleiste) von OBS
-  - auch ein gerade in den System-Tray minimiertes - und schickt jedem ein ganz normales
-  Schließen-Signal (`WM_CLOSE`), **kein** hartes Abwürgen. OBS läuft also seine normale
-  Beenden-Routine durch (laufende Aufnahme sauber abschließen, bei aktivem
-  Stream/Aufnahme ggf. mit Bestätigungsnachfrage), genau wie bei einem Klick auf das
-  eigene Schließen-Symbol.
+- **Einschalten:** löst die Scheduled Task aus Schritt 3a aus - wie bisher.
+- **Ausschalten:** löst die Scheduled Task aus Schritt 3b aus, die wiederum `stop-obs.ps1`
+  ausführt: sucht alle echten Fenster (mit Titelleiste) von OBS - auch ein gerade in den
+  System-Tray minimiertes - und schickt jedem ein ganz normales Schließen-Signal
+  (`WM_CLOSE`), **kein** hartes Abwürgen. OBS läuft also seine normale Beenden-Routine
+  durch (laufende Aufnahme sauber abschließen, bei aktivem Stream/Aufnahme ggf. mit
+  Bestätigungsnachfrage), genau wie bei einem Klick auf das eigene Schließen-Symbol.
 
   (Frühere Versionen haben dafür erst `taskkill` ohne `/F` benutzt - das lehnt Windows
   bei OBS und vielen anderen gewöhnlichen GUI-Programmen aber grundsätzlich ab, mit der
   Meldung "Dieser Prozess kann nur zwangsweise beendet werden (mit der Option /F)" - und
   danach .NETs `CloseMainWindow()` (ab v0.6.1), das wiederum ein minimiert-im-Tray
-  laufendes OBS gar nicht erst als "Hauptfenster" erkannt hat. Seit v0.6.2 läuft das
-  stattdessen direkt über die Windows-Fenster-API, die auch versteckte/im-Tray-Fenster
-  findet.)
+  laufendes OBS gar nicht erst als "Hauptfenster" erkannt hat. v0.6.2 bis v0.7.4 liefen
+  dafür direkt über die Windows-Fenster-API, aber noch innerhalb der SSH-Sitzung selbst -
+  die kann OBS' Fenster grundsätzlich nicht sehen, unabhängig von Tray-Status oder
+  Adminrechten (siehe Hinweis ganz oben). Seit v0.7.5 läuft genau dieselbe Fenster-API-Logik
+  stattdessen als eigene Scheduled Task (Schritt 3b) in der echten, sichtbaren Sitzung.)
 
   **Läuft gerade ein Stream oder eine Aufnahme**, zeigt OBS dafür einen
   Bestätigungsdialog **auf dem echten Bildschirm** des Windows-Rechners (dieselbe
@@ -152,16 +194,16 @@ ssh BENUTZERNAME@IP-DES-RECHNERS
 | `timed out` | SSH-Pakete kommen nicht an (meist Firewall/Netzwerkprofil) | Schritt 2 |
 | `Authentication failed` | Benutzername/Passwort falsch, bei Microsoft-Konto nur Kurzname statt voller E-Mail-Adresse verwendet, oder Passwort-Login für das Konto blockiert | Schritt 4 |
 | Schalter lässt sich gar nicht bedienen / fehlt | Integration vor v0.2.1: komplette Einrichtung scheiterte, wenn OBS beim Laden nicht erreichbar war | Auf v0.2.1 oder neuer aktualisieren |
-| `schtasks meldete Exit-Code ...` (beim Einschalten) | Task-Name in HA stimmt nicht exakt mit dem Namen in der Aufgabenplanung überein | Schritt 3 - Name 1:1 abgleichen |
-| `This process can only be terminated forcefully (with /F)` (beim Ausschalten) | Integration vor v0.6.1 benutzte dafür `taskkill`, das diese Einschränkung hat (siehe oben) | Auf v0.6.2 oder neuer aktualisieren |
-| `CloseMainWindow fehlgeschlagen ...` (beim Ausschalten) | Nur in v0.6.1: .NETs Heuristik fand OBS' Fenster nicht (z. B. weil OBS im Tray minimiert war) | Auf v0.6.2 oder neuer aktualisieren |
-| `Kein Fenster für den Prozess gefunden ...` (beim Ausschalten, ab v0.6.2) | Prozessname in HA stimmt nicht mit dem im Task-Manager überein, oder OBS läuft "als Administrator" während die SSH-Sitzung das nicht ist (unterschiedliche Rechte blockieren das Schließen-Signal) | Prozessname in den Optionen prüfen (siehe Schritt 5); prüfen, ob OBS normal gestartet wurde (nicht "als Administrator") |
-| `Schließen-Signal konnte an kein gefundenes Fenster gesendet werden` (beim Ausschalten, ab v0.6.2) | Fenster wurde gefunden, nimmt das Signal aber nicht an (selten, z. B. während OBS selbst gerade mit etwas anderem beschäftigt ist) | Kurz warten und nochmal versuchen |
+| `schtasks meldete Exit-Code ...` / `The system cannot find the file specified` oder `... does not exist` (beim Ein- **oder** Ausschalten) | Task-Name in HA stimmt nicht exakt mit dem Namen in der Aufgabenplanung überein - ab v0.7.5 auch beim Ausschalten möglich, wenn die neue Task aus Schritt 3b noch fehlt | Schritt 3a/3b - Namen 1:1 abgleichen; nach einem Update auf v0.7.5 prüfen, ob Schritt 3b schon gemacht wurde |
+| `This process can only be terminated forcefully (with /F)` (beim Ausschalten) | Nur in Versionen vor v0.6.1 - benutzten dafür `taskkill`, das diese Einschränkung hat | Aktualisieren |
+| `CloseMainWindow fehlgeschlagen ...` (beim Ausschalten) | Nur in v0.6.1: .NETs Heuristik fand OBS' Fenster nicht (z. B. weil OBS im Tray minimiert war) | Aktualisieren |
+| `Kein Fenster für den Prozess gefunden ...` (beim Ausschalten) | In v0.6.2-v0.7.4: Die EnumWindows-Logik lief noch direkt in der SSH-Sitzung, die OBS' Fenster strukturell nicht sehen kann (unabhängig von Tray-Status/Adminrechten - siehe Hinweis ganz oben) | Auf v0.7.5 oder neuer aktualisieren **und** Schritt 3b (neue Scheduled Task) nachholen |
+| Schalter zum Ausschalten bleibt ohne jede Fehlermeldung wirkungslos (ab v0.7.5) | `stop-obs.ps1` lief zwar (Task ausgelöst), fand aber kein Fenster oder konnte das Signal nicht senden | `stop-obs.log` neben dem Skript öffnen (Schritt 3b) - zeigt den genauen Grund |
 | Schalter zeigt nach "Ausschalten" sofort wieder "an" | OBS läuft noch (Beenden-Dialog wartet auf Bestätigung auf dem Bildschirm, siehe oben), oder braucht noch ein paar Sekunden zum Schließen | Am Bildschirm nachsehen; nächste Abfrage (max. 10s) aktualisiert den Zustand |
 
 ## Mehrere OBS-Installationen (nacheinander genutzt)
 
 Siehe Haupt-README, Abschnitt zu mehreren Instanzen: jede Installation bekommt einen
-eigenen WebSocket-Port (auch wenn nie gleichzeitig genutzt) plus eine eigene Scheduled
-Task, dann in HA zwei getrennte Integrationseinträge mit jeweils eigenem Task-Namen in den
-Optionen.
+eigenen WebSocket-Port (auch wenn nie gleichzeitig genutzt) plus ein eigenes Paar
+Scheduled Tasks (Starten + Beenden, inklusive eigener Kopie von `stop-obs.ps1`), dann in HA
+zwei getrennte Integrationseinträge mit jeweils eigenen Task-Namen in den Optionen.

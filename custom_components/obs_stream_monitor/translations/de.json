@@ -24,13 +24,13 @@
     "step": {
       "init": {
         "title": "Erweiterte Funktionen (optional)",
-        "description": "Alles unten bleibt leer/aus für reines Monitoring. SSH-Felder ausfüllen für den 'OBS'-Schalter (startet/beendet OBS auf dem Rechner, braucht OpenSSH-Server unter Windows und eine Scheduled Task, siehe Doku). 'OBS-Steuerung aktivieren' schaltet zusätzlich Schalter für Stream/Aufnahme start/stop sowie Auswahlfelder zum Wechseln von Profil und Szenensammlung frei. 'Szenen-Baum aktivieren' bringt Schalter für Quellen-Sichtbarkeit und Filter je Szene/Quelle, nutzbar über die mitgelieferte Dashboard-Karte (siehe Doku) - alles nur nutzbar, solange OBS läuft (Ausnahme: der 'OBS'-Schalter selbst sowie der Sensor 'OBS läuft').",
+        "description": "Alles unten bleibt leer/aus für reines Monitoring. SSH-Felder ausfüllen für den 'OBS'-Schalter (startet/beendet OBS auf dem Rechner, braucht OpenSSH-Server unter Windows und zwei Scheduled Tasks - eine zum Starten, eine zum Beenden -, siehe Doku). 'OBS-Steuerung aktivieren' schaltet zusätzlich Schalter für Stream/Aufnahme start/stop sowie Auswahlfelder zum Wechseln von Profil und Szenensammlung frei. 'Szenen-Baum aktivieren' bringt Schalter für Quellen-Sichtbarkeit und Filter je Szene/Quelle, nutzbar über die mitgelieferte Dashboard-Karte (siehe Doku) - alles nur nutzbar, solange OBS läuft (Ausnahme: der 'OBS'-Schalter selbst sowie der Sensor 'OBS läuft').",
         "data": {
           "ssh_username": "SSH-Benutzername",
           "ssh_password": "SSH-Passwort",
           "ssh_port": "SSH-Port",
-          "task_name": "Name der Scheduled Task",
-          "obs_process_name": "Prozessname von OBS (für sanftes Beenden)",
+          "task_name": "Name der Scheduled Task (Starten)",
+          "stop_task_name": "Name der Scheduled Task (Beenden)",
           "enable_control": "OBS-Steuerung aktivieren (Stream/Aufnahme, Profil/Szenensammlung)",
           "enable_scene_tree": "Szenen-Baum aktivieren (Quellen/Filter als Schalter)"
         }

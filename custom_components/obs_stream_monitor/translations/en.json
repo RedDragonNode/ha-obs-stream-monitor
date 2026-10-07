@@ -24,13 +24,13 @@
     "step": {
       "init": {
         "title": "Advanced features (optional)",
-        "description": "Everything below stays blank/off for monitoring only. Fill in the SSH fields for the 'OBS' switch (starts/stops OBS on the machine, requires OpenSSH Server on Windows and a Scheduled Task, see docs). 'Enable OBS control' additionally unlocks switches for stream/recording start/stop plus dropdowns to switch profile and scene collection. 'Enable scene tree' adds switches for source visibility and filters per scene/source, usable via the bundled dashboard card (see docs) - all of it only usable while OBS is running (exception: the 'OBS' switch itself and the 'OBS running' sensor).",
+        "description": "Everything below stays blank/off for monitoring only. Fill in the SSH fields for the 'OBS' switch (starts/stops OBS on the machine, requires OpenSSH Server on Windows and two Scheduled Tasks - one to start, one to stop - see docs). 'Enable OBS control' additionally unlocks switches for stream/recording start/stop plus dropdowns to switch profile and scene collection. 'Enable scene tree' adds switches for source visibility and filters per scene/source, usable via the bundled dashboard card (see docs) - all of it only usable while OBS is running (exception: the 'OBS' switch itself and the 'OBS running' sensor).",
         "data": {
           "ssh_username": "SSH username",
           "ssh_password": "SSH password",
           "ssh_port": "SSH port",
-          "task_name": "Scheduled task name",
-          "obs_process_name": "OBS process name (for graceful shutdown)",
+          "task_name": "Scheduled task name (start)",
+          "stop_task_name": "Scheduled task name (stop)",
           "enable_control": "Enable OBS control (stream/recording, profile/scene collection)",
           "enable_scene_tree": "Enable scene tree (sources/filters as switches)"
         }

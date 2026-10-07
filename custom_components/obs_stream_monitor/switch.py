@@ -42,14 +42,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     CONF_ENABLE_CONTROL,
     CONF_ENABLE_SCENE_TREE,
-    CONF_OBS_PROCESS_NAME,
     CONF_SSH_PASSWORD,
     CONF_SSH_PORT,
     CONF_SSH_USERNAME,
+    CONF_STOP_TASK_NAME,
     CONF_TASK_NAME,
     CONNECT_TIMEOUT,
-    DEFAULT_OBS_PROCESS_NAME,
     DEFAULT_SSH_PORT,
+    DEFAULT_STOP_TASK_NAME,
     DEFAULT_TASK_NAME,
     DOMAIN,
 )
@@ -256,7 +256,8 @@ class ObsRecordSwitch(_ObsControlSwitch):
 
 
 class ObsPowerSwitch(CoordinatorEntity[ObsStreamMonitorCoordinator], SwitchEntity):
-    """Launches OBS on the remote machine over SSH, or asks it to close normally.
+    """Launches or gracefully closes OBS on the remote machine, each via its
+    own Windows Scheduled Task triggered over SSH (see ssh_control.py).
 
     Deliberately NOT gated by coordinator availability like the two control
     switches above: unlike those, "OBS isn't reachable" is exactly the
@@ -307,10 +308,10 @@ class ObsPowerSwitch(CoordinatorEntity[ObsStreamMonitorCoordinator], SwitchEntit
         ssh_port = entry.options.get(CONF_SSH_PORT, DEFAULT_SSH_PORT)
         ssh_username = entry.options.get(CONF_SSH_USERNAME)
         ssh_password = entry.options.get(CONF_SSH_PASSWORD)
-        process_name = entry.options.get(CONF_OBS_PROCESS_NAME, DEFAULT_OBS_PROCESS_NAME)
+        stop_task_name = entry.options.get(CONF_STOP_TASK_NAME, DEFAULT_STOP_TASK_NAME)
         try:
             await self.hass.async_add_executor_job(
-                stop_obs, host, ssh_port, ssh_username, ssh_password, process_name
+                stop_obs, host, ssh_port, ssh_username, ssh_password, stop_task_name
             )
         except Exception as err:
             raise HomeAssistantError(f"OBS-Beenden über SSH fehlgeschlagen: {err}") from err

@@ -62,7 +62,7 @@ obs-websocket v5 does not expose a direct bitrate field. This integration derive
 
 ## Optional: starting (and gracefully stopping) OBS from Home Assistant
 
-obs-websocket can only talk to OBS once it's already running, so starting OBS cold - and closing it down again - needs a different path: Home Assistant opens an SSH connection to the machine. Turning the "OBS" switch on triggers a Windows Scheduled Task that launches OBS (running it as a Scheduled Task, rather than spawning the process directly over SSH, is deliberate — only a task configured to run in the logged-on user's session shows up on screen; a bare SSH-launched process runs invisibly in its own session). Turning it off sends a plain, non-forced `taskkill` for OBS's process name, which asks OBS to close normally (its own exit handling runs - saving the current recording, asking for confirmation if a stream/recording is still active) rather than killing it outright.
+obs-websocket can only talk to OBS once it's already running, so starting OBS cold - and closing it down again - needs a different path: Home Assistant opens an SSH connection to the machine. Both directions of the "OBS" switch trigger a Windows Scheduled Task (one to start, one to stop) rather than acting directly over SSH - running as a Scheduled Task is deliberate, since only a task configured to run in the logged-on user's session has access to the real, interactive desktop; a plain SSH-spawned process runs invisibly in its own session and can't even *see* OBS's windows, let alone close them. Turning the switch off runs a small script (bundled as `stop-obs.ps1`) that asks every one of OBS's real windows to close via `WM_CLOSE` - the same message a title bar's own close button sends - so OBS runs its normal exit handling (saving the current recording, asking for confirmation if a stream/recording is still active) instead of being killed outright.
 
 Leave the SSH fields in the integration's Configure dialog empty to keep this integration monitoring-only.
 
@@ -105,7 +105,7 @@ Doesn't need "Szenen-Baum aktivieren" turned on - it talks to OBS directly by so
 
 ### Multiple OBS installations
 
-Used one at a time (not simultaneously): give each installation its own obs-websocket port (even though they never run together — HA tells entries apart by host+port, so a shared port means a shared, colliding entry), create a separate Scheduled Task per installation, and add a separate Home Assistant integration entry per installation with its own task name under Configure. Whichever one isn't currently running just shows "not available" sensors, which is correct.
+Used one at a time (not simultaneously): give each installation its own obs-websocket port (even though they never run together — HA tells entries apart by host+port, so a shared port means a shared, colliding entry), create a separate pair of Scheduled Tasks (start + stop) per installation, and add a separate Home Assistant integration entry per installation with its own task names under Configure. Whichever one isn't currently running just shows "not available" sensors, which is correct.
 
 Running two instances at once is a different, more involved OBS-side setup (`--multi` flag, separate `--profile`/portable config dirs) and isn't covered here.
 
