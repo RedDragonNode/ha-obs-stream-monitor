@@ -1066,6 +1066,16 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
       return { source: "", field: "" };
     }
 
+    // Lets Home Assistant's "Add to dashboard" / card-edit UI show a proper
+    // form (see ObsSettingCardEditor below) instead of dropping straight
+    // into the raw YAML/code editor - the standard Lovelace custom-card
+    // contract: HA calls this once, sets .hass and .setConfig(config) on
+    // the returned element, and listens for it to dispatch "config-changed"
+    // CustomEvents as the person edits.
+    static getConfigElement() {
+      return document.createElement("obs-setting-card-editor");
+    }
+
     // Resolves which config entry to talk to: explicit config.entry_id if
     // given, otherwise the sole OBS Stream Monitor entry currently set up
     // (every entity this integration creates - not just Szenen-Baum ones -
@@ -1398,4 +1408,165 @@ import { OBS_SETTINGS_LABELS } from "./obs-settings-labels.js";
     description:
       "Eine einzelne OBS-Quellen-/Filter-Einstellung (z. B. Aufnahmepfad) als eigene Karte (OBS Stream Monitor).",
   });
+
+  /**
+   * Visual config form for ObsSettingCard, returned by its
+   * static getConfigElement(). Plain text fields for source/filter/field/
+   * title/entry_id - the one bit of help beyond that is datalist
+   * autocomplete suggestions for "source" and "filter", built from the
+   * same switch entities the big "OBS Szenen-Baum" card already reads
+   * (obs_role scene_item/filter - see that card's _switchEntities()), so
+   * picking an exact, correctly-spelled name doesn't require remembering
+   * it or opening OBS itself. Those suggestions only exist once "Szenen-
+   * Baum aktivieren" has been turned on for at least one source/filter;
+   * without it (or for a field this card doesn't know about yet) the
+   * fields just stay plain free-text inputs - nothing stops working.
+   *
+   * Implements the standard, framework-free Lovelace custom-card editor
+   * contract: setConfig(config) / a "hass" setter, and a "config-changed"
+   * CustomEvent (bubbling, composed so it crosses this element's own
+   * shadow DOM boundary) dispatched with { detail: { config } } on every
+   * edit - Home Assistant listens for that and re-applies it to the card.
+   */
+  class ObsSettingCardEditor extends HTMLElement {
+    setConfig(config) {
+      this._config = { ...(config || {}) };
+      this._render();
+    }
+
+    set hass(hass) {
+      this._hass = hass;
+      this._render();
+    }
+
+    // All switch entities the integration's "Szenen-Baum" feature creates
+    // (scene_item = a source's visibility switch, filter = a filter's
+    // enable switch) - the source of the autocomplete suggestions below.
+    // Returns [] (not an error) when that feature isn't turned on for any
+    // entry, or hass isn't available yet.
+    _sceneTreeEntities() {
+      const hass = this._hass;
+      if (!hass || !hass.states) return [];
+      return Object.values(hass.states).filter((st) => {
+        if (!st.entity_id.startsWith("switch.")) return false;
+        const a = st.attributes || {};
+        if (a.obs_role !== "scene_item" && a.obs_role !== "filter") return false;
+        return !this._config.entry_id || a.obs_entry_id === this._config.entry_id;
+      });
+    }
+
+    _sourceSuggestions() {
+      const names = new Set();
+      for (const e of this._sceneTreeEntities()) {
+        if (e.attributes.source) names.add(e.attributes.source);
+      }
+      return [...names].sort((a, b) => a.localeCompare(b));
+    }
+
+    _filterSuggestions() {
+      const source = this._config.source;
+      const names = new Set();
+      for (const e of this._sceneTreeEntities()) {
+        if (e.attributes.obs_role === "filter" && (!source || e.attributes.source === source)) {
+          names.add(e.attributes.filter);
+        }
+      }
+      return [...names].sort((a, b) => a.localeCompare(b));
+    }
+
+    // Applies one field's edited value to the config (deleting the key
+    // entirely for an empty optional field, rather than storing ""), then
+    // tells Home Assistant about the change. Exposed as its own method so
+    // it can be exercised directly in tests without going through a real
+    // DOM change event.
+    _updateKey(key, rawValue) {
+      const value = rawValue.trim();
+      const next = { ...this._config };
+      if (value === "") {
+        delete next[key];
+      } else {
+        next[key] = value;
+      }
+      this._config = next;
+      const event = new CustomEvent("config-changed", {
+        detail: { config: this._config },
+        bubbles: true,
+        composed: true,
+      });
+      this.dispatchEvent(event);
+    }
+
+    _styles() {
+      return `
+        <style>
+          .osce-field { margin-bottom: 12px; }
+          .osce-field label {
+            display: block;
+            font-size: 13px;
+            color: var(--primary-text-color);
+            margin-bottom: 4px;
+          }
+          .osce-field .osce-hint {
+            font-size: 12px;
+            color: var(--secondary-text-color);
+            font-weight: normal;
+          }
+          .osce-field input {
+            width: 100%;
+            box-sizing: border-box;
+            font: inherit;
+            font-size: 14px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--divider-color);
+            background: var(--card-background-color, #fff);
+            color: var(--primary-text-color);
+          }
+        </style>
+      `;
+    }
+
+    _field(key, label, { hint, list } = {}) {
+      const value = this._config[key] || "";
+      const listAttr = list ? ` list="${esc(list)}"` : "";
+      return `
+        <div class="osce-field">
+          <label>${esc(label)}${hint ? ` <span class="osce-hint">(${esc(hint)})</span>` : ""}</label>
+          <input data-key="${esc(key)}" value="${esc(value)}"${listAttr}>
+        </div>
+      `;
+    }
+
+    _render() {
+      if (!this._config) return;
+      if (!this._root) {
+        this._root = this.attachShadow({ mode: "open" });
+      }
+      const sourceOptions = this._sourceSuggestions()
+        .map((s) => `<option value="${esc(s)}">`)
+        .join("");
+      const filterOptions = this._filterSuggestions()
+        .map((f) => `<option value="${esc(f)}">`)
+        .join("");
+
+      this._root.innerHTML = `
+        ${this._styles()}
+        ${this._field("source", "Quelle (source)", { hint: "Pflichtfeld, Name wie in OBS", list: "osce-sources" })}
+        <datalist id="osce-sources">${sourceOptions}</datalist>
+        ${this._field("filter", "Filter (optional)", { hint: "nur für ein Filter-Feld", list: "osce-filters" })}
+        <datalist id="osce-filters">${filterOptions}</datalist>
+        ${this._field("field", "Feld (field)", { hint: "Pflichtfeld, roher Name aus dem Zahnrad-Dialog" })}
+        ${this._field("title", "Titel (optional)")}
+        ${this._field("entry_id", "entry_id (optional)", { hint: "nur bei mehreren OBS-Installationen nötig" })}
+      `;
+
+      this._root.querySelectorAll("[data-key]").forEach((el) => {
+        el.addEventListener("change", (ev) => {
+          this._updateKey(el.dataset.key, ev.target.value);
+        });
+      });
+    }
+  }
+
+  customElements.define("obs-setting-card-editor", ObsSettingCardEditor);
 })();
