@@ -20,9 +20,16 @@ Three kinds of switch live here, each independently optional:
   (custom_components/obs_stream_monitor/www/) reads and operates on -
   they're tagged with obs_role/scene/source/filter attributes specifically
   so that card can find them without depending on entity_id naming.
-  Discovered dynamically from the coordinator's scene_tree data and added
-  as they first appear, since OBS's own scenes/sources/filters can change
-  at any time (added, removed, renamed) independently of Home Assistant.
+  Discovered dynamically from the coordinator's scene_tree data and kept in
+  sync with it on every poll - added as they first appear, and deregistered
+  again (removed from Home Assistant entirely, not just left "not
+  available") as soon as they're no longer in the tree - since OBS's own
+  scenes/sources/filters can change at any time (added, removed, renamed)
+  independently of Home Assistant. A rename looks identical to a removal
+  from here (the new name shows up as a new entry, the old one disappears),
+  so renaming one also produces a brand-new entity rather than updating the
+  old one in place - unavoidable, since obs-websocket gives no stable ID
+  that survives a rename to key the entity on instead of the name itself.
 """
 from __future__ import annotations
 
@@ -35,6 +42,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -144,16 +152,36 @@ async def async_setup_entry(
     known_items: dict[tuple[str, str], ObsSceneItemSwitch] = {}
     known_filters: dict[str, ObsFilterSwitch] = {}
 
+    def _deregister(entity: SwitchEntity) -> None:
+        """Permanently remove a scene-item/filter switch whose source/filter
+        is no longer in OBS's scene tree, instead of leaving it stuck
+        "not available" forever (see the class docstring above).
+        """
+        registry = er.async_get(hass)
+        entity_id = registry.async_get_entity_id("switch", DOMAIN, entity.unique_id)
+        if entity_id:
+            registry.async_remove(entity_id)
+
     @callback
-    def _add_new_entities() -> None:
+    def _sync_entities() -> None:
+        # Guard against a transient poll failure wiping the tree: a failed
+        # coordinator refresh leaves coordinator.data at its last *successful*
+        # value (HA's DataUpdateCoordinator never clears it on failure), so
+        # this only ever sees an empty/shrunk tree when OBS actually reported
+        # one - never as a side effect of OBS being briefly unreachable.
+        if not coordinator.last_update_success:
+            return
         tree = (coordinator.data or {}).get("scene_tree") or {}
         new_entities: list[SwitchEntity] = []
+        current_item_keys: set[tuple[str, str]] = set()
+        current_filter_keys: set[str] = set()
 
         for scene_name, items in tree.items():
             for item in items:
                 source_name = item["source_name"]
 
                 item_key = (scene_name, source_name)
+                current_item_keys.add(item_key)
                 if item_key not in known_items:
                     ent = ObsSceneItemSwitch(coordinator, entry, scene_name, source_name)
                     known_items[item_key] = ent
@@ -161,6 +189,7 @@ async def async_setup_entry(
 
                 for flt in item["filters"]:
                     filter_key = f"{source_name}\x1f{flt['name']}"
+                    current_filter_keys.add(filter_key)
                     if filter_key not in known_filters:
                         fent = ObsFilterSwitch(coordinator, entry, source_name, flt["name"])
                         known_filters[filter_key] = fent
@@ -169,8 +198,13 @@ async def async_setup_entry(
         if new_entities:
             async_add_entities(new_entities)
 
-    entry.async_on_unload(coordinator.async_add_listener(_add_new_entities))
-    _add_new_entities()
+        for stale_key in set(known_items) - current_item_keys:
+            _deregister(known_items.pop(stale_key))
+        for stale_key in set(known_filters) - current_filter_keys:
+            _deregister(known_filters.pop(stale_key))
+
+    entry.async_on_unload(coordinator.async_add_listener(_sync_entities))
+    _sync_entities()
 
 
 class _ObsControlSwitch(CoordinatorEntity[ObsStreamMonitorCoordinator], SwitchEntity):

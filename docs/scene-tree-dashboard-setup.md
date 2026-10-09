@@ -279,10 +279,15 @@ Auch über **Entwicklerwerkzeuge → Aktionen** direkt testbar (Ziel-Entität au
 
 - **Gruppen** (verschachtelte Szenen innerhalb einer Szene) werden in der ersten Version
   nicht aufgelöst — nur normale Quellen.
-- Wird eine Quelle/Szene/Filter in OBS **umbenannt**, erscheint sie als neuer Eintrag; der
-  alte Schalter wird "nicht verfügbar" und kann in Home Assistant von Hand gelöscht werden
-  (Einstellungen → Geräte & Dienste → OBS Stream Monitor → Entitäten → den alten Eintrag
-  löschen).
+- Wird eine Quelle/Szene/Filter in OBS **entfernt oder umbenannt**, verschwindet der
+  zugehörige Schalter seit v0.7.6 automatisch wieder aus Home Assistant (statt nur dauerhaft
+  "nicht verfügbar" zu bleiben) - spätestens beim nächsten Poll (max. 10s). Eine Umbenennung
+  sieht dabei technisch wie "alt entfernt, neu hinzugekommen" aus (obs-websocket liefert
+  keine stabile ID, die eine Umbenennung von einer Entfernung unterscheidbar macht), daher
+  bekommt eine umbenannte Quelle/ein umbenannter Filter einen frischen Schalter statt dass
+  der alte weiterverwendet wird - in Dashboards/Automatisierungen also ggf. neu referenzieren.
+  (Vor v0.7.6 blieb der alte Schalter stattdessen stehen und musste von Hand gelöscht werden,
+  Einstellungen → Geräte & Dienste → OBS Stream Monitor → Entitäten.)
 - Die Karte zeigt nur, was die Integration zuletzt abgefragt hat (wie alle Sensoren hier,
   alle ~10 Sekunden aktuell) — keine Echtzeit-Push-Updates von OBS.
 
@@ -296,5 +301,5 @@ Auch über **Entwicklerwerkzeuge → Aktionen** direkt testbar (Ziel-Entität au
 | "OBS Einstellung"-Karte zeigt `Mehrere OBS-Stream-Monitor-Einträge gefunden` | Mehr als eine OBS-Installation/Integrationseintrag vorhanden, Karte kann nicht automatisch raten, welcher gemeint ist | `entry_id` in der Karten-Konfiguration ergänzen (siehe Schritt 3 oben, "Falls mehrere OBS-Installationen...") |
 | Nach einem Update verhält sich die Karte noch wie vorher (z. B. `scene`-Feld ohne Wirkung) | Alte JS-Datei noch im Cache - weder Integrations-Update+Neustart noch normales Neuladen der Seite erzwingen das Nachladen | Ressourcen-URL um `?v=<neue Version>` ergänzen (siehe oben) und hart neu laden (Strg+Shift+R); zusätzlich prüfen, ob die Integration wirklich auf der neuen Version ist (Geräte & Dienste → OBS Stream Monitor) |
 | Karte zeigt "Noch keine Daten" dauerhaft | Schritt 1 (Szenen-Baum aktivieren) nicht gemacht, oder OBS gerade nicht erreichbar | Integrations-Optionen prüfen; Sensor "Aktuelle Szene" sollte einen Wert zeigen |
-| Schalter lässt sich nicht bedienen (ausgegraut) | Entität aktuell "nicht verfügbar", meist weil OBS nicht läuft oder die Quelle/der Filter inzwischen umbenannt/gelöscht wurde | OBS-Erreichbarkeit prüfen; bei Umbenennung siehe "Bekannte Einschränkungen" oben |
+| Schalter lässt sich nicht bedienen (ausgegraut) | Entität aktuell "nicht verfügbar", meist weil OBS nicht läuft; läuft OBS und bleibt es trotzdem ausgegraut, verschwindet der Schalter ab v0.7.6 beim nächsten Poll von selbst (Quelle/Filter wurde entfernt/umbenannt) | OBS-Erreichbarkeit prüfen; sonst kurz abwarten (max. 10s) |
 | Neue Version zeigt sich im lokalen Netz (`<HA-Hostname>.local:8123`) korrekt, über die öffentliche Domain aber weiterhin alt | Reverse-Proxy/CDN vor der Domain (z. B. Cloudflare) cached die JS-Datei unabhängig vom `?v=`-Parameter | Cache des Proxys/CDN gezielt leeren (siehe "Wichtig bei künftigen Updates" oben) |

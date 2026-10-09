@@ -187,6 +187,72 @@ ssh BENUTZERNAME@IP-DES-RECHNERS
 - Klappt das, aber der HA-Schalter meldet trotzdem einen Fehler → Tippfehler in den
   HA-Optionsfeldern (Leerzeichen, Sonderzeichen)
 
+## Sonderfall: Grundverbindung (Port 4455) bricht, obwohl SSH/der "OBS"-Schalter funktioniert
+
+Das betrifft nicht den SSH-Schalter selbst, sondern die normale, immer aktive
+**Grundverbindung** der Integration (obs-websocket, Standardport `4455`) - die braucht gar
+kein SSH und läuft unabhängig davon. Fällt sie aus, gehen alle Sensoren und
+Steuer-Entitäten auf "nicht verfügbar"/"aus" (inkl. "OBS läuft"), **obwohl** SSH (Port 22)
+und damit der "OBS"-Schalter zum Starten/Beenden weiterhin klaglos funktionieren - diese
+Kombination ist das Erkennungsmerkmal für genau dieses Problem. In den
+Home-Assistant-Logs (Einstellungen → System → Protokolle, oder `ha_get_logs`/MCP):
+wiederholte `TimeoutError`/`WebSocketTimeoutException` beim Verbindungsaufbau zu
+`HOST:4455`, mal beim `connect()`, mal beim Warten auf die erste Antwort - beides dieselbe
+Ursache.
+
+**Ursache bei einem portablen OBS auf einem externen/Wechsel-Laufwerk:** Windows weist so
+einem Laufwerk nicht garantiert jedes Mal denselben Buchstaben zu. Programmbasierte
+Firewall-Regeln für `obs64.exe`/"OBS Studio" hängen aber am exakten Dateipfad inklusive
+Laufwerksbuchstabe - über Monate sammeln sich so viele alte, nicht mehr zutreffende Regeln
+an (`S:\...`, `V:\...`, `X:\...`, `D:\...` etc.), während die *aktuell* laufende Instanz
+keine zuverlässig passende Regel mehr trifft. Windows verwirft eingehende Verbindungen für
+sie dann still (kein "Connection refused" - einfach "timed out", die Pakete kommen nie an),
+und das selbst dann, wenn OBS selbst nachweislich korrekt auf `0.0.0.0:4455` lauscht und das
+Netzwerkprofil "Privat" ist (Schritt 2 oben) - also trotz vermeintlich korrekter
+Grundkonfiguration.
+
+**Diagnose, in dieser Reihenfolge:**
+
+```powershell
+# 1. Lauscht OBS überhaupt nach außen (nicht nur localhost)?
+netstat -ano | findstr 4455
+# sollte eine Zeile "0.0.0.0:4455   ...   ABHÖREN" zeigen
+
+# 2. Netzwerkprofil wirklich "Private"? (nicht nur die App-Regeln)
+Get-NetConnectionProfile
+
+# 3. Welche Pfade deckt die Firewall gerade tatsächlich ab?
+Get-NetFirewallRule -DisplayName "*obs*" | Get-NetFirewallApplicationFilter | Select -Unique Program
+```
+
+Ein Selbsttest auf die eigene IP (`Test-NetConnection -ComputerName EIGENE-IP -Port 4455`
+vom selben Rechner aus) ist dabei **nicht zuverlässig** - Windows kann das intern über
+Loopback umleiten, ohne die Firewall für eingehende Verbindungen überhaupt zu durchlaufen.
+Echter Test ist nur von einem anderen Gerät im Netz, am besten direkt von Home Assistant
+aus (Terminal & SSH-Add-on):
+
+```
+curl -v telnet://IP-DES-RECHNERS:4455
+```
+
+Hängt das endlos bei "Trying ..." (statt sofort "Connection refused" oder
+"Established connection to ..."), ist das die Bestätigung.
+
+**Fix:** Statt den alten pfadbasierten Regeln hinterherzuräumen, eine robuste, vom
+Dateipfad unabhängige Regel direkt für den Port anlegen (passt den Laufwerksbuchstaben nie
+wieder etwas an):
+
+```powershell
+New-NetFirewallRule -DisplayName "OBS WebSocket (4455)" -Direction Inbound -Protocol TCP -LocalPort 4455 -Action Allow -Profile Private
+```
+
+(Bei einem anderen als dem Standard-Port - z. B. bei mehreren OBS-Installationen, siehe
+unten - die Portnummer entsprechend anpassen.) Danach den `curl`-Test oben wiederholen:
+"Established connection to ..." statt endlosem Hängen = behoben. Die Integration holt sich
+die nächsten Live-Daten automatisch beim nächsten Poll (max. 10s), ohne Neustart. Die alten,
+nicht mehr zutreffenden Pfad-Regeln können aufgeräumt werden, müssen es aber nicht - die
+neue Portregel wirkt unabhängig davon.
+
 ## Fehlermeldungen und was sie bedeuten
 
 | Meldung im HA-Fehler | Ursache | Lösung |
@@ -200,6 +266,7 @@ ssh BENUTZERNAME@IP-DES-RECHNERS
 | `Kein Fenster für den Prozess gefunden ...` (beim Ausschalten) | In v0.6.2-v0.7.4: Die EnumWindows-Logik lief noch direkt in der SSH-Sitzung, die OBS' Fenster strukturell nicht sehen kann (unabhängig von Tray-Status/Adminrechten - siehe Hinweis ganz oben) | Auf v0.7.5 oder neuer aktualisieren **und** Schritt 3b (neue Scheduled Task) nachholen |
 | Schalter zum Ausschalten bleibt ohne jede Fehlermeldung wirkungslos (ab v0.7.5) | `stop-obs.ps1` lief zwar (Task ausgelöst), fand aber kein Fenster oder konnte das Signal nicht senden | `stop-obs.log` neben dem Skript öffnen (Schritt 3b) - zeigt den genauen Grund |
 | Schalter zeigt nach "Ausschalten" sofort wieder "an" | OBS läuft noch (Beenden-Dialog wartet auf Bestätigung auf dem Bildschirm, siehe oben), oder braucht noch ein paar Sekunden zum Schließen | Am Bildschirm nachsehen; nächste Abfrage (max. 10s) aktualisiert den Zustand |
+| Alle Sensoren/Entitäten "nicht verfügbar", "OBS läuft" bleibt aus, aber der "OBS"-Schalter startet/beendet OBS trotzdem anstandslos | Grundverbindung (Port 4455) gestört, unabhängig von SSH - typischerweise verwaiste pfadbasierte Firewall-Regeln bei portablem OBS auf wechselndem Laufwerksbuchstaben | Siehe Abschnitt "Sonderfall: Grundverbindung (Port 4455) bricht ..." oben |
 
 ## Mehrere OBS-Installationen (nacheinander genutzt)
 
