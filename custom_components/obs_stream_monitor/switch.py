@@ -166,8 +166,21 @@ async def async_setup_entry(
     if not entry.options.get(CONF_ENABLE_SCENE_TREE, False):
         return
 
-    known_items: dict[object, ObsSceneItemSwitch | _LegacyPlaceholder] = {}
-    known_filters: dict[object, ObsFilterSwitch | _LegacyPlaceholder] = {}
+    # Both dicts are keyed by the switch's own unique_id string (not by
+    # (scene_name, source_name) tuples or similar) precisely so that a
+    # _LegacyPlaceholder seeded from the registry (see
+    # _seed_known_from_registry) and the real ObsSceneItemSwitch/
+    # ObsFilterSwitch instance for that same still-live entity land under
+    # the *same* key and get recognised as the same thing - see the bug
+    # this fixed, below.
+    known_items: dict[str, ObsSceneItemSwitch | _LegacyPlaceholder] = {}
+    known_filters: dict[str, ObsFilterSwitch | _LegacyPlaceholder] = {}
+
+    def _item_unique_id(scene_name: str, source_name: str) -> str:
+        return f"{entry.entry_id}_sceneitem_{_slug(scene_name, source_name)}"
+
+    def _filter_unique_id(source_name: str, filter_name: str) -> str:
+        return f"{entry.entry_id}_filter_{_slug(source_name, filter_name)}"
 
     def _deregister(entity: SwitchEntity) -> None:
         """Permanently remove a scene-item/filter switch whose source/filter
@@ -194,13 +207,29 @@ async def async_setup_entry(
         was never in the "known" set to begin with. That's exactly the kind
         of karteileiche these dicts exist to catch, so it's seeded with
         whatever the registry already has for this config entry *before*
-        the first _sync_entities() call: anything still genuinely live gets
-        matched up with its real key once the first poll comes in (HA
-        reuses the existing registry entry for a matching unique_id rather
-        than duplicating it), while anything that stays unmatched - because
-        its key is just the unique_id itself here, never a real (scene,
-        source) tuple or "source\x1ffilter" string - falls out as stale on
-        the very first successful poll and gets removed.
+        the first _sync_entities() call, keyed by each entry's own
+        unique_id - the same key _sync_entities computes for a still-live
+        item/filter (see _item_unique_id/_filter_unique_id above), so a
+        still-genuinely-live one gets its placeholder replaced with the
+        real entity on the first poll (not deregistered - see the bugfix
+        note below), while one that stays unmatched is the real thing,
+        a karteileiche, and gets removed.
+
+        v0.7.8 first shipped this seeding step keyed by (scene_name,
+        source_name) tuples / "source\x1ffilter" strings instead of
+        unique_id for the *live* side (this placeholder dict was already
+        unique_id-keyed) - two different key shapes for what should've been
+        the same entity, so a still-live item's placeholder (unique_id key)
+        and its freshly-added live entity (tuple key) both ended up in
+        known_items/known_filters as if they were two different things.
+        The placeholder's key never matched anything in that poll's
+        current_item_keys/current_filter_keys (those only ever contained
+        tuples/"\x1f" strings), so EVERY previously-registered scene-item/
+        filter switch got deregistered on the very first poll after
+        upgrading or restarting - including ones still very much live in
+        OBS. Keying both sides by unique_id throughout fixes that: a
+        placeholder and its live counterpart are now the literal same dict
+        entry, not two.
         """
         registry = er.async_get(hass)
         item_prefix = f"{entry.entry_id}_sceneitem_"
@@ -224,7 +253,7 @@ async def async_setup_entry(
             return
         tree = (coordinator.data or {}).get("scene_tree") or {}
         new_entities: list[SwitchEntity] = []
-        current_item_keys: set[tuple[str, str]] = set()
+        current_item_keys: set[str] = set()
         current_filter_keys: set[str] = set()
         # Sources whose filter list couldn't be fetched this poll (see the
         # filters_unknown note in coordinator._fetch_scene_tree) - an empty
@@ -236,32 +265,35 @@ async def async_setup_entry(
             for item in items:
                 source_name = item["source_name"]
 
-                item_key = (scene_name, source_name)
-                current_item_keys.add(item_key)
-                if item_key not in known_items:
+                item_uid = _item_unique_id(scene_name, source_name)
+                current_item_keys.add(item_uid)
+                existing = known_items.get(item_uid)
+                if existing is None or isinstance(existing, _LegacyPlaceholder):
                     ent = ObsSceneItemSwitch(coordinator, entry, scene_name, source_name)
-                    known_items[item_key] = ent
+                    known_items[item_uid] = ent
                     new_entities.append(ent)
 
                 if item.get("filters_unknown"):
                     unknown_filter_sources.add(source_name)
 
                 for flt in item["filters"]:
-                    filter_key = f"{source_name}\x1f{flt['name']}"
-                    current_filter_keys.add(filter_key)
-                    if filter_key not in known_filters:
+                    filter_uid = _filter_unique_id(source_name, flt["name"])
+                    current_filter_keys.add(filter_uid)
+                    existing_f = known_filters.get(filter_uid)
+                    if existing_f is None or isinstance(existing_f, _LegacyPlaceholder):
                         fent = ObsFilterSwitch(coordinator, entry, source_name, flt["name"])
-                        known_filters[filter_key] = fent
+                        known_filters[filter_uid] = fent
                         new_entities.append(fent)
 
         if new_entities:
             async_add_entities(new_entities)
 
         if unknown_filter_sources:
-            for filter_key in known_filters:
-                source_name = filter_key.split("\x1f", 1)[0]
-                if source_name in unknown_filter_sources:
-                    current_filter_keys.add(filter_key)
+            for source_name in unknown_filter_sources:
+                prefix = f"{entry.entry_id}_filter_{_slug(source_name, '')}"
+                for filter_uid in known_filters:
+                    if filter_uid.startswith(prefix):
+                        current_filter_keys.add(filter_uid)
 
         for stale_key in set(known_items) - current_item_keys:
             _deregister(known_items.pop(stale_key))

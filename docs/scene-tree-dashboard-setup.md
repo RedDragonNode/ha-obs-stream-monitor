@@ -288,6 +288,14 @@ Auch über **Entwicklerwerkzeuge → Aktionen** direkt testbar (Ziel-Entität au
   der alte weiterverwendet wird - in Dashboards/Automatisierungen also ggf. neu referenzieren.
   (Vor v0.7.6 blieb der alte Schalter stattdessen stehen und musste von Hand gelöscht werden,
   Einstellungen → Geräte & Dienste → OBS Stream Monitor → Entitäten.)
+  Zuverlässig funktioniert das automatische Aufräumen erst **ab v0.7.8** - v0.7.6 hat es
+  eingeführt, aber eine einzelne, von obs-websocket nicht auflösbare Quelle (z. B. durch
+  OBS' Multi-Canvas-Funktion) konnte die komplette Szenen-Baum-Abfrage und damit auch das
+  Aufräumen blockieren (behoben in v0.7.7), und Karteileichen, die schon **vor** der
+  Installation dieses Features bzw. vor einem Neustart bestanden, wurden zunächst gar nicht
+  erkannt (behoben in v0.7.8). Wer schon länger laufende Karteileichen hat, die nach einem
+  Update auf v0.7.6/v0.7.7 immer noch da sind, braucht mindestens v0.7.8 plus einen
+  Neustart von Home Assistant.
 - Die Karte zeigt nur, was die Integration zuletzt abgefragt hat (wie alle Sensoren hier,
   alle ~10 Sekunden aktuell) — keine Echtzeit-Push-Updates von OBS.
 
@@ -301,5 +309,5 @@ Auch über **Entwicklerwerkzeuge → Aktionen** direkt testbar (Ziel-Entität au
 | "OBS Einstellung"-Karte zeigt `Mehrere OBS-Stream-Monitor-Einträge gefunden` | Mehr als eine OBS-Installation/Integrationseintrag vorhanden, Karte kann nicht automatisch raten, welcher gemeint ist | `entry_id` in der Karten-Konfiguration ergänzen (siehe Schritt 3 oben, "Falls mehrere OBS-Installationen...") |
 | Nach einem Update verhält sich die Karte noch wie vorher (z. B. `scene`-Feld ohne Wirkung) | Alte JS-Datei noch im Cache - weder Integrations-Update+Neustart noch normales Neuladen der Seite erzwingen das Nachladen | Ressourcen-URL um `?v=<neue Version>` ergänzen (siehe oben) und hart neu laden (Strg+Shift+R); zusätzlich prüfen, ob die Integration wirklich auf der neuen Version ist (Geräte & Dienste → OBS Stream Monitor) |
 | Karte zeigt "Noch keine Daten" dauerhaft | Schritt 1 (Szenen-Baum aktivieren) nicht gemacht, oder OBS gerade nicht erreichbar | Integrations-Optionen prüfen; Sensor "Aktuelle Szene" sollte einen Wert zeigen |
-| Schalter lässt sich nicht bedienen (ausgegraut) | Entität aktuell "nicht verfügbar", meist weil OBS nicht läuft; läuft OBS und bleibt es trotzdem ausgegraut, verschwindet der Schalter ab v0.7.6 beim nächsten Poll von selbst (Quelle/Filter wurde entfernt/umbenannt) | OBS-Erreichbarkeit prüfen; sonst kurz abwarten (max. 10s) |
+| Schalter lässt sich nicht bedienen (ausgegraut) | Entität aktuell "nicht verfügbar", meist weil OBS nicht läuft; läuft OBS und bleibt es trotzdem ausgegraut, verschwindet der Schalter ab v0.7.8 beim nächsten Poll von selbst (Quelle/Filter wurde entfernt/umbenannt, oder war schon vorher eine Karteileiche) | OBS-Erreichbarkeit prüfen; sonst kurz abwarten (max. 10s); bleibt der Schalter trotz laufendem OBS dauerhaft ausgegraut, sicherstellen, dass mindestens v0.7.8 installiert und Home Assistant seitdem neu gestartet wurde |
 | Neue Version zeigt sich im lokalen Netz (`<HA-Hostname>.local:8123`) korrekt, über die öffentliche Domain aber weiterhin alt | Reverse-Proxy/CDN vor der Domain (z. B. Cloudflare) cached die JS-Datei unabhängig vom `?v=`-Parameter | Cache des Proxys/CDN gezielt leeren (siehe "Wichtig bei künftigen Updates" oben) |
