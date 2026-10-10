@@ -1,0 +1,13 @@
+{
+  "domain": "spielpartner_aufnahme",
+  "name": "Spielpartner Aufnahme",
+  "codeowners": ["@RedDragonNode"],
+  "config_flow": true,
+  "documentation": "https://github.com/RedDragonNode/ha-spielen-spezial-spielpartner",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/RedDragonNode/ha-spielen-spezial-spielpartner/issues",
+  "requirements": [],
+  "after_dependencies": ["obs_stream_monitor", "camera"],
+  "version": "0.2.0"
+}

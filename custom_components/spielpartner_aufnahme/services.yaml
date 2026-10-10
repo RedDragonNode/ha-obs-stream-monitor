@@ -1,0 +1,64 @@
+recorder_starten:
+  fields:
+    spielpartner:
+      required: false
+      example: frank_visselff
+      selector:
+        text:
+recorder_stoppen:
+aufnahme_vorbereiten:
+  fields:
+    spielpartner:
+      required: true
+      example: frank_visselff
+      selector:
+        text:
+dateiformat_anwenden:
+  fields:
+    spielpartner:
+      required: false
+      example: frank_visselff
+      selector:
+        text:
+aufnahme_zaehlen:
+  fields:
+    spielpartner:
+      required: false
+      example: frank_visselff
+      selector:
+        text:
+aufnahme_posten:
+  fields:
+    spielpartner:
+      required: false
+      example: frank_visselff
+      selector:
+        text:
+zaehler_setzen:
+  fields:
+    spielpartner:
+      required: true
+      example: frank_visselff
+      selector:
+        text:
+    saison:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 9999
+          mode: box
+    aufnahmen_in_saison:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 9999
+          mode: box
+    gesamt:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 9999
+          mode: box

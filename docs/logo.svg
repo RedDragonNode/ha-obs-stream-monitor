@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b2250"/>
+      <stop offset="1" stop-color="#14122b"/>
+    </linearGradient>
+    <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff9a4a"/>
+      <stop offset="1" stop-color="#f06a1d"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Kopf -->
+  <polygon points="104,104 218,188 294,188 408,104 428,286 256,438 84,286" fill="url(#fur)"/>
+  <!-- Innenohren -->
+  <polygon points="124,142 192,194 150,246" fill="#7a2f12"/>
+  <polygon points="388,142 320,194 362,246" fill="#7a2f12"/>
+  <!-- helle Wangen / Schnauze -->
+  <polygon points="84,286 174,300 338,300 428,286 256,438" fill="#fff4e6"/>
+  <!-- Augen -->
+  <polygon points="168,252 214,262 200,284 160,272" fill="#1a1530"/>
+  <polygon points="344,252 298,262 312,284 352,272" fill="#1a1530"/>
+  <!-- Nase -->
+  <polygon points="232,392 280,392 256,420" fill="#1a1530"/>
+  <!-- Aufnahme-Punkt -->
+  <circle cx="404" cy="404" r="62" fill="#14122b"/>
+  <circle cx="404" cy="404" r="48" fill="#ff3b4e"/>
+  <circle cx="388" cy="388" r="12" fill="#ff8a96" opacity=".8"/>
+</svg>

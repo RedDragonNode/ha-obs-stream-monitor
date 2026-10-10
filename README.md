@@ -1,118 +1,135 @@
-# OBS Stream Monitor for Home Assistant
+<p align="center">
+  <img src="custom_components/spielpartner_aufnahme/brand/logo.png" alt="Spielpartner Aufnahme" width="520">
+</p>
 
-A Home Assistant custom integration that pulls read-only stream/recording stats from [OBS Studio](https://obsproject.com/) via its built-in [obs-websocket v5](https://github.com/obsproject/obs-websocket) server, plus optional extras: a switch to launch OBS on the remote machine (or close it again, gracefully), switches to start/stop the stream and recording, dropdowns to switch OBS's profile and scene collection, a service to push raw source/filter settings from automations, a click-through dashboard card for OBS's scenes/sources/filters with visibility and filter toggles, and a small companion card to pin a single raw source/filter setting on its own.
+# Spielpartner Aufnahme
 
-## Requirements
+Private Home-Assistant-Integration für **Spielen Spezial**: Spielpartner anlegen und pflegen,
+Aufnahmen vorbereiten, Zähler führen, OBS-Dateinamen setzen und Discord-Threads bedienen –
+alles an einem Ort, ohne Helfer-Sammlung, Skript und Automationen.
 
-- OBS Studio 28+ (ships with obs-websocket v5 built in)
-- OBS -> Tools -> WebSocket Server Settings: server enabled, note the port and password
-- Home Assistant must be able to reach the machine running OBS on the configured port (same LAN, or routed)
+> Privates Repo, MIT-Lizenz. Gebaut für die eigene Integration
+> [ha-obs-stream-monitor](https://github.com/RedDragonNode/ha-obs-stream-monitor).
 
-## Installation (HACS)
+## Was sie ersetzt
 
-1. HACS -> the three-dot menu (top right) -> Custom repositories
-2. Add this repository URL, category "Integration"
-3. Install "OBS Stream Monitor", restart Home Assistant
-
-## Installation (manual)
-
-Copy `custom_components/obs_stream_monitor/` into your Home Assistant `config/custom_components/` folder and restart.
-
-## Setup
-
-Settings -> Devices & Services -> Add Integration -> "OBS Stream Monitor"
-
-| Field | Value |
+| Früher | Jetzt |
 |---|---|
-| Host | IP address of the machine running OBS |
-| Port | From OBS WebSocket Server Settings (default `4455`) |
-| Password | From OBS WebSocket Server Settings |
+| ~10 Helfer pro Spielpartner (Zähler, Ordner, Thread, Kanal-ID, Dateiformat …) | 1 Spielpartner = 1 Eintrag (Gerät) mit 3 Zähler-Zahlen, Pfad-, Format- und Thread-Sensor |
+| Skript „Aufnahme Vorbereitung“ (≈ 40 Schritte) | Button „Aufnahme vorbereiten“ oder Service `spielpartner_aufnahme.aufnahme_vorbereiten` |
+| Skript „OBS Source Record Dateiformatierung“ (Kürzel nur für FB/HB) | Jede Cam mit eigenem Kürzel als eigener Eintrag |
+| Automation „Aufnahme beendet – Zähler hochzählen“ | automatisch (Aufnahme `an → aus`) |
+| Automation „Aufnahme läuft 5 Min – Video-ID, Schaukel, Schnappschüsse posten“ | automatisch, Wartezeit einstellbar |
+| `rest_command` / `notify` für Discord | direkt in der Integration (Bot-Token) |
+
+## Neu in 0.2.0: Recorder (Aufnahme ohne OBS-Neukodierung)
+
+Die Integration kann die Kameras jetzt selbst aufnehmen: ein Add-on schreibt die RTSP-Streams per Stream-Copy
+auf die Platte des HA-Servers – ohne GPU-Last. Modi: `obs` (wie bisher), `recorder`, `beide`.
+Einrichtung und Ablauf: [docs/recorder.md](docs/recorder.md).
+
+## Installation
+
+**Manuell:** Ordner `spielpartner_aufnahme` aus dem Archiv nach `config/custom_components/` kopieren
+(Ergebnis: `config/custom_components/spielpartner_aufnahme/manifest.json`), Home Assistant neu starten.
+
+**HACS (privates Repo):** HACS → ⋮ → *Benutzerdefinierte Repositories* → Repo-URL, Kategorie *Integration*
+(dafür braucht HACS Zugriff auf private Repos, z. B. über ein GitHub-Token).
+
+Danach: *Einstellungen → Geräte & Dienste → Integration hinzufügen → „Spielpartner Aufnahme“*.
+
+## Einrichtung
+
+1. **Grundeinstellungen** (alles später unter *Konfigurieren* änderbar):
+   Basis-Pfade, Ordner-Präfix, Dateiname-Endung, Aufnahme-Entity, Wartezeit für den Statusbeitrag,
+   optional Discord-Bot-Token, Schaukel-Cover und die Entities des PC-Ordner-Werkzeugs.
+   Die Vorgaben entsprechen deinem bisherigen System.
+2. Die **16 Standard-Cams** (Bauleitung … Wildspur) werden mit ihrem Kürzel gleich mit angelegt.
+3. **Spielpartner hinzufügen** (Drei-Punkte-Menü des Eintrags → *Spielpartner hinzufügen*):
+   Kennung, Anzeigename, Ordner-Nummer (`#01`), Discord-Forum-Kanal-ID.
+   Die **Startwerte** (Saison, Aufnahmen in Saison, Aufnahmen gesamt) legen fest, mit welchen Zählern der
+   Spielpartner beginnt (leer = 1). Sie lassen sich später direkt an den Zahlenfeldern ändern.
+4. **Cams bearbeiten**: Kürzel, optional Kamera für Schnappschüsse und das Häkchen **„In Discord posten“**.
+   Nur angehakte Cams erscheinen im Discord-Beitrag.
+
+## Ablauf einer Aufnahme
+
+1. **Aufnahme vorbereiten** (Button am Spielpartner-Gerät, Service oder Dashboard-Karte):
+   - Ordner `Spielen mit <Name> #<Nr>` wird über das PC-Ordner-Werkzeug angelegt/geöffnet.
+   - Existieren schon Saison-Ordner und der heutige fehlt → **neue Saison** (Saison +1, Aufnahmen in Saison auf 1).
+   - Ordner `Saison <SS> vom <TT,MM,JJJJ>` wird angelegt.
+   - Pfad wird in **alle** Source-Record-Filter geschrieben, der Dateiname mit dem Kürzel der jeweiligen Cam
+     in die zugeordneten Filter.
+   - Fehlt der Discord-Thread der Saison, wird er im Forum angelegt.
+   - Eine Benachrichtigung fasst alles zusammen (inkl. Hinweisen, falls etwas nicht erreichbar war).
+2. **Aufnahme läuft x Minuten**: Beitrag im Saison-Thread. Zuerst eine Kopfzeile mit der Schaukel-Position,
+   danach **jede angehakte Cam einzeln und zeitlich versetzt** (Abstand einstellbar, Standard 20 Sekunden):
+   Schnappschuss, direkt darunter die Video-ID dieser Cam.
+3. **Aufnahme endet**: „Aufnahmen in Saison“ und „Gesamt“ steigen um 1, die Dateinamen in OBS
+   werden direkt für die nächste Aufnahme aktualisiert.
+
+### Dateiname
+
+```
+#<Ordner-Nr>.<Saison>.<Aufnahme in Saison>.<Cam-Kürzel>.<Gesamt><Endung>
+#01.02.03.FB.14 (4K) %DD.%MM.%CCYY
+```
+
+Alle Zahlen zweistellig. Die Endung ist einstellbar. Das Sensor-Gerät jeder Cam zeigt ihren aktuellen Dateinamen.
+
+### Welche OBS-Filter gehören zu welcher Cam?
+
+Automatisch über den **Namen**: Enthält Quelle oder Entity-ID des Source-Record-Filters den Cam-Namen
+(Umlaute aufgelöst, z. B. `Hoelenblick`), gehört der Filter zur Cam. Filter ohne zugeordnete Cam bekommen den
+Pfad, aber keinen Dateinamen – die Benachrichtigung nennt sie.
+
+> **Wichtig:** Das alte Skript und die alten Automationen (Zähler hochzählen, 5-Minuten-Post) schreiben mit
+> ihren alten Zählern ebenfalls Dateinamen in OBS und überschreiben die der Integration. Sie müssen
+> ausgeschaltet sein, sobald die Integration übernimmt.
 
 ## Entities
 
-| Entity | Type | Description |
-|---|---|---|
-| Livestream | binary_sensor | On while OBS is actively streaming |
-| Aufnahme | binary_sensor | On while OBS is actively recording |
-| OBS läuft | binary_sensor | On while OBS is reachable over obs-websocket - unlike every other entity here, stays a clean on/off instead of going "not available" when OBS is down, so automations can react to it directly |
-| Aktuelle Szene | sensor | Name of the active program scene |
-| Stream-Dauer | sensor | Seconds since the current stream started |
-| Bitrate | sensor | Output bitrate in kbit/s, derived between polls (see note below) |
-| Dropped Frames | sensor | Percentage of output frames dropped so far this stream |
-| Aufnahme-Dauer | sensor | Seconds since the current recording started |
-| CPU-Auslastung (OBS) | sensor | OBS-reported CPU usage, percent |
-| Freier Speicherplatz | sensor | Free space on OBS's recording output disk, GB |
-| Aktuelle FPS | sensor | OBS's currently active render FPS |
-| Aktuelles Profil | sensor | Name of OBS's currently active profile |
-| Aktuelle Szenensammlung | sensor | Name of OBS's currently active scene collection |
+Pro Spielpartner (eigenes Gerät): Zähler **Saison**, **Aufnahmen in Saison**, **Aufnahmen gesamt**
+(Zahlenfelder, direkt editierbar), Sensoren **Speicher-Adresse**, **Dateiformat**, **Discord-Thread**
+und der Button **Aufnahme vorbereiten**. Pro Cam: Sensor **Dateiformat**. Global: **Aktueller Spielpartner**
+(mit Zählern als Attribute) und **Status**.
 
-| OBS | switch | Launches OBS via a Windows Scheduled Task, or asks it to close normally (not a forced kill) - only appears once SSH is configured, see below. Like "OBS läuft" above, stays usable even while OBS is unreachable |
-| Stream | switch | Starts/stops the live stream (only appears once "OBS-Steuerung aktivieren" is on, see below) |
-| Aufnahme | switch | Starts/stops recording (only appears once "OBS-Steuerung aktivieren" is on, see below) |
-| OBS Profil | select | Switches OBS's active profile (only appears once "OBS-Steuerung aktivieren" is on, see below) |
-| OBS Szenensammlung | select | Switches OBS's active scene collection (only appears once "OBS-Steuerung aktivieren" is on, see below) |
-| *(dynamic, one per scene/source)* | switch | Shows/hides a source within one scene (only appears once "Szenen-Baum aktivieren" is on, see below) |
-| *(dynamic, one per source/filter)* | switch | Enables/disables one filter on a source (only appears once "Szenen-Baum aktivieren" is on, see below) |
+## Services
 
-Entities are polled every 10 seconds. The select and stream/recording/scene-tree switch entities go "not available" whenever OBS itself does, since switching only makes sense while it's actually running - the "OBS" power switch and the "OBS läuft" sensor are the deliberate exception (see their descriptions above).
+| Service | Zweck |
+|---|---|
+| `spielpartner_aufnahme.aufnahme_vorbereiten` | wie der Button; liefert eine Antwort (Ordner, Saison, Hinweise) |
+| `spielpartner_aufnahme.zaehler_setzen` | Saison / Aufnahmen in Saison / Gesamt auf feste Werte |
+| `spielpartner_aufnahme.aufnahme_zaehlen` | Aufnahme manuell mitzählen |
+| `spielpartner_aufnahme.aufnahme_posten` | Statusbeitrag sofort posten |
+| `spielpartner_aufnahme.dateiformat_anwenden` | Dateinamen erneut in OBS schreiben |
 
-### A note on bitrate
+`spielpartner` ist die Kennung (z. B. `frank_visselff`) oder der Anzeigename; bei den letzten drei Services
+bedeutet leer „aktueller Spielpartner“.
 
-obs-websocket v5 does not expose a direct bitrate field. This integration derives one from the change in `outputBytes` between two polls, divided by the elapsed time. It's a close approximation of what OBS's own stats dock shows, not a value read directly from OBS.
+## Discord einrichten
 
-## Optional: starting (and gracefully stopping) OBS from Home Assistant
+Bot im Developer Portal anlegen, auf den Server einladen, Token in den Einstellungen eintragen.
+Der Bot braucht im Forum-Kanal: *Kanäle ansehen*, *Beiträge erstellen*, *Nachrichten in Beiträgen senden*,
+*Dateien anhängen*, *Links einbetten*. Die Kanal-ID steht beim Spielpartner (Rechtsklick auf das Forum → ID kopieren).
+Ohne Token bleibt Discord aus – alles andere funktioniert weiter.
 
-obs-websocket can only talk to OBS once it's already running, so starting OBS cold - and closing it down again - needs a different path: Home Assistant opens an SSH connection to the machine. Both directions of the "OBS" switch trigger a Windows Scheduled Task (one to start, one to stop) rather than acting directly over SSH - running as a Scheduled Task is deliberate, since only a task configured to run in the logged-on user's session has access to the real, interactive desktop; a plain SSH-spawned process runs invisibly in its own session and can't even *see* OBS's windows, let alone close them. Turning the switch off runs a small script (bundled as `stop-obs.ps1`) that asks every one of OBS's real windows to close via `WM_CLOSE` - the same message a title bar's own close button sends - so OBS runs its normal exit handling (saving the current recording, asking for confirmation if a stream/recording is still active) instead of being killed outright.
+## Tests
 
-Leave the SSH fields in the integration's Configure dialog empty to keep this integration monitoring-only.
-
-**Full step-by-step setup (including the two gotchas that actually bite — firewall network profile, and Microsoft-account password sign-in — and how the graceful-stop side works) is in [docs/ssh-start-button-setup.md](docs/ssh-start-button-setup.md).**
-
-## Optional: starting/stopping stream and recording, switching profile / scene collection
-
-The sensors "Livestream", "Aufnahme", "Aktuelles Profil" and "Aktuelle Szenensammlung" are always there. The matching switches/dropdowns to actually control them are a separate, off-by-default control feature — this is what to do to turn it on:
-
-1. **Settings -> Devices & Services -> OBS Stream Monitor -> Configure**
-2. Scroll to the bottom and check **"OBS-Steuerung aktivieren (Stream/Aufnahme, Profil/Szenensammlung)"**
-3. Submit — the entry reloads itself, no restart needed
-4. Four new entities now show up under the device's "Steuerung" card: switches **"Stream"** and **"Aufnahme"**, and selects **"OBS Profil"** and **"OBS Szenensammlung"** (the latter two populated live from whatever profiles/scene collections currently exist in OBS)
-
-Toggling the switches or picking a value in either select acts in OBS immediately, the same as using OBS's own UI. All four go "not available" whenever OBS itself does, since none of this makes sense while it's unreachable.
-
-This is actual control, not monitoring, so it's off by default like the SSH-based "OBS" switch — leave the checkbox unticked to keep the integration read-only.
-
-## Optional: scene/source/filter dashboard card
-
-Turn on "Szenen-Baum aktivieren" in the integration's Configure dialog to get switch entities for every source's visibility within each scene, and for every filter on every source — plus a bundled dashboard card ("OBS Szenen-Baum") that presents them as a click-through tree: scenes → that scene's sources (with a visibility toggle) → that source's filters (with an enable toggle).
-
-This needs two one-time setup steps (adding the card's resource, then adding the card to a dashboard) that Home Assistant doesn't allow an integration to do for you automatically.
-
-**Full step-by-step setup, including the resource/dashboard steps and a troubleshooting table, is in [docs/scene-tree-dashboard-setup.md](docs/scene-tree-dashboard-setup.md).**
-
-This is actual control, not monitoring, so it's off by default like the other extras — leave the checkbox unticked to keep the integration read-only. Note: this adds extra obs-websocket requests per poll (one per scene, plus one per source for its filters), which is negligible for a normal streaming setup but worth knowing if you have an unusually large number of scenes.
-
-### Pinning a single setting as its own card
-
-The scene-tree card's gear-icon dialog edits a whole source's/filter's raw settings at once. For a value you check or change often (a recording path, a text source's content, ...), the same JS resource also ships a smaller companion card, `custom:obs-setting-card`, that shows just one field:
-
-```yaml
-type: custom:obs-setting-card
-source: Kesselcam
-field: path
+```bash
+pip install -r requirements_test.txt
+pytest
 ```
 
-Doesn't need "Szenen-Baum aktivieren" turned on - it talks to OBS directly by source/filter name, independent of the scene-tree switches. Full config options (including targeting a filter's field, and the multi-instance `entry_id`) in [docs/scene-tree-dashboard-setup.md](docs/scene-tree-dashboard-setup.md#einzelne-einstellung-als-eigene-karte).
+## Weitere Doku
 
-### Multiple OBS installations
+- [Migration vom alten System](docs/migration.md)
+- [Dashboard-Beispiel](docs/dashboard.md)
 
-Used one at a time (not simultaneously): give each installation its own obs-websocket port (even though they never run together — HA tells entries apart by host+port, so a shared port means a shared, colliding entry), create a separate pair of Scheduled Tasks (start + stop) per installation, and add a separate Home Assistant integration entry per installation with its own task names under Configure. Whichever one isn't currently running just shows "not available" sensors, which is correct.
+## Bekannte Eigenheiten
 
-Running two instances at once is a different, more involved OBS-side setup (`--multi` flag, separate `--profile`/portable config dirs) and isn't covered here.
-
-## Icon
-
-Ships its own brand icon (`custom_components/obs_stream_monitor/brand/`) - a generic original camera/live-dot mark, not OBS's own logo/trademark, so there's no licensing question around redistributing it.
-
-## License
-
-MIT, see [LICENSE](LICENSE).
+- Die Zähler zeigen die Nummer, die die **nächste** Aufnahme bekommt (so verhielt sich das alte System auch);
+  nach Aufnahme-Ende werden sie erhöht.
+- Das PC-Ordner-Werkzeug ist ein eigener Baustein von dir; sind seine Entities nicht erreichbar, überspringt die
+  Integration die Ordner-Schritte und sagt es in der Benachrichtigung (Saisonwechsel wird dann **nicht** erkannt).
+- Das Kürzel `sc` (Schnauzencam) ist klein geschrieben, wie angegeben.

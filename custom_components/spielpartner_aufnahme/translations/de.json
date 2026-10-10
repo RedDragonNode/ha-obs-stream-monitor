@@ -1,0 +1,288 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Spielpartner Aufnahme",
+        "description": "Grundeinstellungen. Alles lässt sich später unter 'Konfigurieren' ändern. Die 16 Standard-Cams werden mit angelegt.",
+        "data": {
+          "discord_token": "Discord-Bot-Token (leer = Discord aus)",
+          "basis_pfad_obs": "Basis-Pfad für OBS (Schrägstrich)",
+          "basis_pfad_windows": "Basis-Pfad Windows (Backslash)",
+          "ordner_praefix": "Ordner-Präfix (z.B. 'Spielen mit')",
+          "dateiformat_endung": "Endung des Dateinamens (z.B. ' (4K) %DD.%MM.%CCYY')",
+          "aufnahme_entity": "Entity, die anzeigt, ob OBS aufnimmt (für Modus obs/beide oder 'folgt OBS')",
+          "post_nach_minuten": "Statusbeitrag nach x Minuten Aufnahme",
+          "post_abstand_sekunden": "Abstand zwischen den Cam-Beiträgen in Sekunden",
+          "schaukel_entity": "Schaukel-Cover (optional, für die Position im Beitrag)",
+          "werkzeug_basis_button": "Ordner-Werkzeug: Button 'zur Basis wechseln'",
+          "werkzeug_wechseln_button": "Ordner-Werkzeug: Button 'in Ordner wechseln'",
+          "werkzeug_name_text": "Ordner-Werkzeug: Text 'neuer Ordnername'",
+          "werkzeug_pfad_sensor": "Ordner-Werkzeug: Sensor 'aktuelle Ordner-Adresse'",
+          "werkzeug_ordner_select": "Ordner-Werkzeug: Auswahl der Unterordner",
+          "werkzeug_status_sensor": "Ordner-Werkzeug: Status-Sensor (optional)",
+          "werkzeug_timeout": "Ordner-Werkzeug: Wartezeit in Sekunden",
+          "modus": "Modus (obs = OBS Source Record, recorder = Aufnahme auf dem HA-Server, beide = beides)",
+          "recorder_url": "Recorder: Adresse des Add-ons (http://local-spielpartner-recorder:8099)",
+          "recorder_schluessel": "Recorder: Schlüssel (api_key des Add-ons)",
+          "recorder_folgt_obs": "Recorder startet/stoppt mit der OBS-Aufnahme"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Die Integration ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Einstellungen",
+        "data": {
+          "discord_token": "Discord-Bot-Token (leer = Discord aus)",
+          "basis_pfad_obs": "Basis-Pfad für OBS (Schrägstrich)",
+          "basis_pfad_windows": "Basis-Pfad Windows (Backslash)",
+          "ordner_praefix": "Ordner-Präfix (z.B. 'Spielen mit')",
+          "dateiformat_endung": "Endung des Dateinamens (z.B. ' (4K) %DD.%MM.%CCYY')",
+          "aufnahme_entity": "Entity, die anzeigt, ob OBS aufnimmt (für Modus obs/beide oder 'folgt OBS')",
+          "post_nach_minuten": "Statusbeitrag nach x Minuten Aufnahme",
+          "post_abstand_sekunden": "Abstand zwischen den Cam-Beiträgen in Sekunden",
+          "schaukel_entity": "Schaukel-Cover (optional, für die Position im Beitrag)",
+          "werkzeug_basis_button": "Ordner-Werkzeug: Button 'zur Basis wechseln'",
+          "werkzeug_wechseln_button": "Ordner-Werkzeug: Button 'in Ordner wechseln'",
+          "werkzeug_name_text": "Ordner-Werkzeug: Text 'neuer Ordnername'",
+          "werkzeug_pfad_sensor": "Ordner-Werkzeug: Sensor 'aktuelle Ordner-Adresse'",
+          "werkzeug_ordner_select": "Ordner-Werkzeug: Auswahl der Unterordner",
+          "werkzeug_status_sensor": "Ordner-Werkzeug: Status-Sensor (optional)",
+          "werkzeug_timeout": "Ordner-Werkzeug: Wartezeit in Sekunden",
+          "modus": "Modus (obs = OBS Source Record, recorder = Aufnahme auf dem HA-Server, beide = beides)",
+          "recorder_url": "Recorder: Adresse des Add-ons (http://local-spielpartner-recorder:8099)",
+          "recorder_schluessel": "Recorder: Schlüssel (api_key des Add-ons)",
+          "recorder_folgt_obs": "Recorder startet/stoppt mit der OBS-Aufnahme"
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "spielpartner": {
+      "initiate_flow": {
+        "user": "Spielpartner hinzufügen",
+        "reconfigure": "Spielpartner bearbeiten"
+      },
+      "entry_type": "Spielpartner",
+      "step": {
+        "user": {
+          "title": "Neuer Spielpartner",
+          "description": "Kennung = kleiner Suffix ohne Leerzeichen (z.B. frank_visselff). Die Startwerte bestimmen, mit welchen Zählern der Spielpartner beginnt (leer = 1).",
+          "data": {
+            "kennung": "Kennung (a-z, 0-9, _)",
+            "anzeige": "Anzeigename (leer = aus Kennung)",
+            "ordner_nr": "Ordner-Nummer (#01)",
+            "forum_id": "Discord-Forum-Kanal-ID",
+            "start_saison": "Start: Saison",
+            "start_aufnahmen_in_saison": "Start: Aufnahmen in Saison",
+            "start_gesamt": "Start: Aufnahmen gesamt"
+          }
+        },
+        "reconfigure": {
+          "title": "Spielpartner bearbeiten",
+          "data": {
+            "anzeige": "Anzeigename",
+            "ordner_nr": "Ordner-Nummer (#01)",
+            "forum_id": "Discord-Forum-Kanal-ID"
+          }
+        }
+      },
+      "error": {
+        "invalid_kennung": "Nur a-z, 0-9 und _ erlaubt.",
+        "already_configured": "Diese Kennung gibt es schon."
+      },
+      "abort": {
+        "reconfigure_successful": "Gespeichert."
+      }
+    },
+    "cam": {
+      "initiate_flow": {
+        "user": "Cam hinzufügen",
+        "reconfigure": "Cam bearbeiten"
+      },
+      "entry_type": "Cam",
+      "step": {
+        "user": {
+          "title": "Neue Cam",
+          "data": {
+            "name": "Name (wie in OBS, z.B. Fuchsblick)",
+            "kuerzel": "Kürzel (z.B. FB)",
+            "kamera_entity": "Kamera für Schnappschüsse (optional)",
+            "discord_posten": "In Discord posten",
+            "aufnehmen": "Recorder: diese Cam aufnehmen",
+            "stream_entity": "Recorder: Stream-Quelle über eine HA-Kamera (z.B. Reolink-Kamera)",
+            "rtsp_url": "Recorder: oder direkte RTSP-Adresse (hat Vorrang)"
+          }
+        },
+        "reconfigure": {
+          "title": "Cam bearbeiten",
+          "data": {
+            "kuerzel": "Kürzel",
+            "kamera_entity": "Kamera für Schnappschüsse (optional)",
+            "discord_posten": "In Discord posten",
+            "aufnehmen": "Recorder: diese Cam aufnehmen",
+            "stream_entity": "Recorder: Stream-Quelle über eine HA-Kamera (z.B. Reolink-Kamera)",
+            "rtsp_url": "Recorder: oder direkte RTSP-Adresse (hat Vorrang)"
+          }
+        }
+      },
+      "error": {
+        "already_configured": "Diese Cam gibt es schon.",
+        "kuerzel_required": "Bitte ein Kürzel angeben."
+      },
+      "abort": {
+        "reconfigure_successful": "Gespeichert."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "aktueller_spielpartner": {
+        "name": "Aktueller Spielpartner"
+      },
+      "status": {
+        "name": "Status"
+      },
+      "speicher_adresse": {
+        "name": "Speicher-Adresse"
+      },
+      "dateiformat": {
+        "name": "Dateiformat"
+      },
+      "discord_thread": {
+        "name": "Discord-Thread"
+      },
+      "cam_dateiformat": {
+        "name": "Dateiformat"
+      },
+      "recorder_frei": {
+        "name": "Recorder: freier Speicher"
+      }
+    },
+    "number": {
+      "saison": {
+        "name": "Saison"
+      },
+      "aufnahmen_in_saison": {
+        "name": "Aufnahmen in Saison"
+      },
+      "gesamt": {
+        "name": "Aufnahmen gesamt"
+      }
+    },
+    "button": {
+      "vorbereiten": {
+        "name": "Aufnahme vorbereiten"
+      },
+      "recorder_starten": {
+        "name": "Recorder starten"
+      },
+      "recorder_stoppen": {
+        "name": "Recorder stoppen"
+      }
+    },
+    "binary_sensor": {
+      "recorder_online": {
+        "name": "Recorder erreichbar"
+      },
+      "recorder_aufnahme": {
+        "name": "Recorder nimmt auf"
+      },
+      "cam_aufnahme": {
+        "name": "Aufnahme"
+      }
+    }
+  },
+  "services": {
+    "aufnahme_vorbereiten": {
+      "name": "Aufnahme vorbereiten",
+      "description": "Legt Ordner an, prüft Saisonwechsel, setzt Pfad und Dateinamen in OBS und legt bei Bedarf den Discord-Thread an.",
+      "fields": {
+        "spielpartner": {
+          "name": "Spielpartner",
+          "description": "Spielpartner (Kennung oder Anzeigename)"
+        }
+      }
+    },
+    "dateiformat_anwenden": {
+      "name": "Dateiformat in OBS setzen",
+      "description": "Schreibt die Dateinamen (mit Cam-Kürzel) erneut in alle zugeordneten OBS-Filter.",
+      "fields": {
+        "spielpartner": {
+          "name": "Spielpartner",
+          "description": "Spielpartner (Kennung oder Anzeigename) - leer = aktiver"
+        }
+      }
+    },
+    "aufnahme_zaehlen": {
+      "name": "Aufnahme zählen",
+      "description": "Erhöht 'Aufnahmen in Saison' und 'Gesamt' um eins (passiert sonst automatisch am Aufnahme-Ende).",
+      "fields": {
+        "spielpartner": {
+          "name": "Spielpartner",
+          "description": "Spielpartner (Kennung oder Anzeigename) - leer = aktiver"
+        }
+      }
+    },
+    "aufnahme_posten": {
+      "name": "Statusbeitrag posten",
+      "description": "Postet Video-IDs, Schaukel-Position und Schnappschüsse in den Saison-Thread.",
+      "fields": {
+        "spielpartner": {
+          "name": "Spielpartner",
+          "description": "Spielpartner (Kennung oder Anzeigename) - leer = aktiver"
+        }
+      }
+    },
+    "zaehler_setzen": {
+      "name": "Zähler setzen",
+      "description": "Setzt Saison, Aufnahmen in Saison und/oder Gesamt auf feste Werte.",
+      "fields": {
+        "spielpartner": {
+          "name": "Spielpartner",
+          "description": "Spielpartner (Kennung oder Anzeigename)"
+        },
+        "saison": {
+          "name": "Saison",
+          "description": "Neue Saison-Nummer"
+        },
+        "aufnahmen_in_saison": {
+          "name": "Aufnahmen in Saison",
+          "description": "Neuer Wert"
+        },
+        "gesamt": {
+          "name": "Aufnahmen gesamt",
+          "description": "Neuer Wert"
+        }
+      }
+    },
+    "recorder_starten": {
+      "name": "Recorder starten",
+      "description": "Startet die Aufnahme aller Cams über das Add-on (Stream-Copy). Vorher 'Aufnahme vorbereiten'.",
+      "fields": {
+        "spielpartner": {
+          "name": "Spielpartner",
+          "description": "leer = aktiver"
+        }
+      }
+    },
+    "recorder_stoppen": {
+      "name": "Recorder stoppen",
+      "description": "Beendet die Aufnahme sauber und zählt sie.",
+      "fields": {}
+    }
+  },
+  "selector": {
+    "modus": {
+      "options": {
+        "obs": "obs - nur OBS",
+        "recorder": "recorder - nur Recorder",
+        "beide": "beide"
+      }
+    }
+  }
+}
