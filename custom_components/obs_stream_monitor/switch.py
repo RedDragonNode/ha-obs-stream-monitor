@@ -30,6 +30,10 @@ Three kinds of switch live here, each independently optional:
   so renaming one also produces a brand-new entity rather than updating the
   old one in place - unavoidable, since obs-websocket gives no stable ID
   that survives a rename to key the entity on instead of the name itself.
+  This cleanup also sweeps up switches already sitting in the entity
+  registry from before this setup run (a previous Home Assistant restart,
+  or from before this cleanup feature existed at all) - not just ones that
+  vanish while this run is live - see _seed_known_from_registry below.
 """
 from __future__ import annotations
 
@@ -78,6 +82,19 @@ def _device_info(entry: ConfigEntry) -> DeviceInfo:
 
 def _slug(*parts: str) -> str:
     return "_".join(parts).lower().replace(" ", "_")
+
+
+class _LegacyPlaceholder:
+    """Stands in for a scene-item/filter switch found already registered at
+    startup (see _seed_known_from_registry in async_setup_entry below), so
+    the stale-entity cleanup can consider deregistering it without needing
+    a live ObsSceneItemSwitch/ObsFilterSwitch instance for it.
+    """
+
+    __slots__ = ("unique_id",)
+
+    def __init__(self, unique_id: str) -> None:
+        self.unique_id = unique_id
 
 
 def _set_scene_item_enabled(
@@ -149,8 +166,8 @@ async def async_setup_entry(
     if not entry.options.get(CONF_ENABLE_SCENE_TREE, False):
         return
 
-    known_items: dict[tuple[str, str], ObsSceneItemSwitch] = {}
-    known_filters: dict[str, ObsFilterSwitch] = {}
+    known_items: dict[object, ObsSceneItemSwitch | _LegacyPlaceholder] = {}
+    known_filters: dict[object, ObsFilterSwitch | _LegacyPlaceholder] = {}
 
     def _deregister(entity: SwitchEntity) -> None:
         """Permanently remove a scene-item/filter switch whose source/filter
@@ -161,6 +178,40 @@ async def async_setup_entry(
         entity_id = registry.async_get_entity_id("switch", DOMAIN, entity.unique_id)
         if entity_id:
             registry.async_remove(entity_id)
+
+    def _seed_known_from_registry() -> None:
+        """Pre-populate known_items/known_filters with scene-item/filter
+        switches that are already in the entity registry from before this
+        setup run - e.g. left over from before Home Assistant restarted, or
+        from before this cleanup feature even existed.
+
+        known_items/known_filters start empty on every setup (every HA
+        restart, every reload), and _sync_entities below only ever adds an
+        entry to them when it sees that item/filter in a *live* scene-tree
+        poll. A stale switch that's already missing from the very first
+        poll after restart would therefore never be added to either dict in
+        the first place - and a diff can't notice something is gone if it
+        was never in the "known" set to begin with. That's exactly the kind
+        of karteileiche these dicts exist to catch, so it's seeded with
+        whatever the registry already has for this config entry *before*
+        the first _sync_entities() call: anything still genuinely live gets
+        matched up with its real key once the first poll comes in (HA
+        reuses the existing registry entry for a matching unique_id rather
+        than duplicating it), while anything that stays unmatched - because
+        its key is just the unique_id itself here, never a real (scene,
+        source) tuple or "source\x1ffilter" string - falls out as stale on
+        the very first successful poll and gets removed.
+        """
+        registry = er.async_get(hass)
+        item_prefix = f"{entry.entry_id}_sceneitem_"
+        filter_prefix = f"{entry.entry_id}_filter_"
+        for reg_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
+            if reg_entry.domain != "switch" or not reg_entry.unique_id:
+                continue
+            if reg_entry.unique_id.startswith(item_prefix):
+                known_items.setdefault(reg_entry.unique_id, _LegacyPlaceholder(reg_entry.unique_id))
+            elif reg_entry.unique_id.startswith(filter_prefix):
+                known_filters.setdefault(reg_entry.unique_id, _LegacyPlaceholder(reg_entry.unique_id))
 
     @callback
     def _sync_entities() -> None:
@@ -217,6 +268,7 @@ async def async_setup_entry(
         for stale_key in set(known_filters) - current_filter_keys:
             _deregister(known_filters.pop(stale_key))
 
+    _seed_known_from_registry()
     entry.async_on_unload(coordinator.async_add_listener(_sync_entities))
     _sync_entities()
 
