@@ -175,6 +175,11 @@ async def async_setup_entry(
         new_entities: list[SwitchEntity] = []
         current_item_keys: set[tuple[str, str]] = set()
         current_filter_keys: set[str] = set()
+        # Sources whose filter list couldn't be fetched this poll (see the
+        # filters_unknown note in coordinator._fetch_scene_tree) - an empty
+        # filters list for these is "unknown", not "none", so their already-
+        # known filter switches must not be treated as stale below.
+        unknown_filter_sources: set[str] = set()
 
         for scene_name, items in tree.items():
             for item in items:
@@ -187,6 +192,9 @@ async def async_setup_entry(
                     known_items[item_key] = ent
                     new_entities.append(ent)
 
+                if item.get("filters_unknown"):
+                    unknown_filter_sources.add(source_name)
+
                 for flt in item["filters"]:
                     filter_key = f"{source_name}\x1f{flt['name']}"
                     current_filter_keys.add(filter_key)
@@ -197,6 +205,12 @@ async def async_setup_entry(
 
         if new_entities:
             async_add_entities(new_entities)
+
+        if unknown_filter_sources:
+            for filter_key in known_filters:
+                source_name = filter_key.split("\x1f", 1)[0]
+                if source_name in unknown_filter_sources:
+                    current_filter_keys.add(filter_key)
 
         for stale_key in set(known_items) - current_item_keys:
             _deregister(known_items.pop(stale_key))
